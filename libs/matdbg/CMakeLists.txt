@@ -28,6 +28,8 @@ set(SRCS
     src/CommonWriter.cpp
     src/DebugServer.cpp
     src/JsonWriter.cpp
+    src/SourceFormatter.cpp
+    src/SourceFormatter.h
     src/ShaderReplacer.cpp
     src/ShaderExtractor.cpp
     src/ShaderInfo.cpp
@@ -72,7 +74,7 @@ include_directories(${PUBLIC_HDR_DIR} ${RESOURCE_DIR})
 
 add_library(${TARGET} STATIC ${PUBLIC_HDRS} ${SRCS})
 
-target_link_libraries(${TARGET} PUBLIC
+target_link_libraries(${TARGET} PRIVATE
         backend_headers
         civetweb
         filabridge
@@ -84,6 +86,11 @@ target_link_libraries(${TARGET} PUBLIC
         spirv-cross-glsl
         SPIRV-Tools
         utils
+
+        # For fromatting shaders
+)
+target_link_libraries(${TARGET} PUBLIC
+        astyle
 )
 
 target_include_directories(${TARGET} PRIVATE ${filamat_SOURCE_DIR}/src)

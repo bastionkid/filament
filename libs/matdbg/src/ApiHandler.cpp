@@ -145,8 +145,13 @@ bool ApiHandler::handleGetApiShader(struct mg_connection* conn,
         filaflat::ShaderContent content;
         extractor.getShader(item.shaderModel, item.variant, item.pipelineStage, content);
 
+        std::string shader((char const*) content.data());
+        std::string nshader = mFormatter.format(shader.c_str());
+
         mg_printf(conn, kSuccessHeader.data(), "application/txt");
-        mg_write(conn, content.data(), content.size() - 1);
+        mg_write(conn, nshader.c_str(), nshader.size());
+
+        utils::slog.e <<"we are here!!!" << utils::io::endl;
         return true;
     }
 
@@ -204,8 +209,14 @@ bool ApiHandler::handleGetApiShader(struct mg_connection* conn,
         extractor.getShader(item.shaderModel, item.variant, item.pipelineStage, content);
 
         if (language == msl) {
+            std::string shader((char const*) content.data());
+            std::string nshader = mFormatter.format(shader.c_str());
+            
             mg_printf(conn, kSuccessHeader.data(), "application/txt");
-            mg_write(conn, content.data(), content.size() - 1);
+            mg_write(conn, nshader.c_str(), nshader.size());
+        
+//            mg_printf(conn, kSuccessHeader.data(), "application/txt");
+//            mg_write(conn, content.data(), content.size() - 1);
             return true;
         }
 

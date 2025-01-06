@@ -1,0 +1,43 @@
+cmake_minimum_required(VERSION 3.19)
+
+project(astyle CXX)
+set(TARGET astyle)
+
+set(CMAKE_CXX_STANDARD 17)
+
+# AStyle Source
+set(PUBLIC_HDR_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../src)
+file(GLOB SRCS ../src/*.cpp)
+
+# Define the output type
+add_library(${TARGET} STATIC ${SRCS})
+
+# compiler options:
+if(APPLE)
+    target_compile_options(${TARGET} PRIVATE -W -Wall -fno-rtti -fno-exceptions -stdlib=libc++)
+elseif(NOT WIN32)   # Linux
+    target_compile_options(${TARGET} PRIVATE -Wall -Wextra -fno-rtti -fno-exceptions)
+    if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "gnu")
+        execute_process(COMMAND ${CMAKE_CXX_COMPILER} -dumpversion OUTPUT_VARIABLE GCC_VERSION)
+
+	elseif(${CMAKE_CXX_COMPILER_ID} STREQUAL "Intel" AND CMAKE_BUILD_TYPE STREQUAL "Release")
+        # remove intel remarks for release build
+        target_compile_options(${TARGET} PRIVATE -wd11074,11076)
+    endif()
+elseif(MINGW)
+    target_compile_options(${TARGET} PRIVATE -Wall -Wextra -fno-rtti -fno-exceptions)
+elseif(BORLAND)     # Release must be explicitly requested for Borland
+    target_compile_options(${TARGET} PRIVATE -q -w -x-)   # Cannot use no-rtti (-RT-)
+elseif(MSVC)        # Visual Studio
+    target_compile_options(${TARGET} PRIVATE /utf-8)
+endif()
+
+target_compile_options(${TARGET} PRIVATE -DASTYLE_LIB)
+
+# Windows DLL exports removed
+set_property(TARGET ${TARGET} PROPERTY DEFINE_SYMBOL "")
+
+target_include_directories(${TARGET} PUBLIC ${PUBLIC_HDR_DIR})
+set_target_properties(${TARGET} PROPERTIES FOLDER ThirdParty)
+
+install(TARGETS ${TARGET} ARCHIVE DESTINATION lib/${DIST_DIR})

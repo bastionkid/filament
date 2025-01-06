@@ -780,6 +780,7 @@ if (FILAMENT_BUILD_FILAMAT OR IS_HOST_PLATFORM)
     # the material debugger requires filamat
     if (FILAMENT_ENABLE_MATDBG OR IS_HOST_PLATFORM)
         add_subdirectory(${LIBRARIES}/matdbg)
+        add_subdirectory(${EXTERNAL}/astyle/tnt)
     endif()
 
     # TODO: Uncomment below when fgviewer is ready

@@ -92,11 +92,12 @@ class ModelViewer(
             updateCameraProjection()
         }
 
-    val scene: Scene
-    val view: View
-    val camera: Camera
-    val renderer: Renderer
-    @Entity val light: Int
+    val scene: Scene by lazy { engine.createScene() }
+    val view: View by lazy { engine.createView() }
+    val camera: Camera by lazy { engine.createCamera(engine.entityManager.create()).apply { setExposure(kAperture, kShutterSpeed, kSensitivity) } }
+    val renderer: Renderer by lazy { engine.createRenderer() }
+    @get:Entity
+    val light: Int by lazy { EntityManager.get().create() }
 
     private lateinit var displayHelper: DisplayHelper
     private lateinit var cameraManipulator: Manipulator
@@ -117,10 +118,6 @@ class ModelViewer(
     private val upward = DoubleArray(3)
 
     init {
-        renderer = engine.createRenderer()
-        scene = engine.createScene()
-        camera = engine.createCamera(engine.entityManager.create()).apply { setExposure(kAperture, kShutterSpeed, kSensitivity) }
-        view = engine.createView()
         view.scene = scene
         view.camera = camera
 
@@ -130,8 +127,6 @@ class ModelViewer(
 
         // Always add a direct light source since it is required for shadowing.
         // We highly recommend adding an indirect light as well.
-
-        light = EntityManager.get().create()
 
         val (r, g, b) = Colors.cct(6_500.0f)
         LightManager.Builder(LightManager.Type.DIRECTIONAL)

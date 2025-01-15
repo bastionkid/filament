@@ -23,6 +23,7 @@ import android.view.*
 import android.view.GestureDetector
 import com.google.android.filament.View
 import com.google.android.filament.utils.*
+import com.google.android.filament.utils.AutomationEngine.ViewerOptions
 import java.nio.ByteBuffer
 
 class MainActivity : Activity() {
@@ -34,10 +35,9 @@ class MainActivity : Activity() {
     }
 
     private lateinit var surfaceView: SurfaceView
-    private lateinit var choreographer: Choreographer
+    private val choreographer: Choreographer by lazy { Choreographer.getInstance() }
     private val frameScheduler = FrameCallback()
-    private lateinit var modelViewer: ModelViewer
-    private val automation = AutomationEngine()
+    private val modelViewer: ModelViewer by lazy { ModelViewer(surfaceView) }
     private val viewerContent = AutomationEngine.ViewerContent()
 
     @SuppressLint("ClickableViewAccessibility")
@@ -47,57 +47,49 @@ class MainActivity : Activity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         surfaceView = findViewById(R.id.main_sv)
-        choreographer = Choreographer.getInstance()
 
-        modelViewer = ModelViewer(surfaceView)
-        viewerContent.view = modelViewer.view
-        viewerContent.sunlight = modelViewer.light
-        viewerContent.lightManager = modelViewer.engine.lightManager
-        viewerContent.scene = modelViewer.scene
-        viewerContent.renderer = modelViewer.renderer
+        with(viewerContent) {
+            view = modelViewer.view
+            sunlight = modelViewer.light
+            lightManager = modelViewer.engine.lightManager
+            scene = modelViewer.scene
+            renderer = modelViewer.renderer
+        }
 
         surfaceView.setOnTouchListener { _, event ->
             modelViewer.onTouchEvent(event)
             true
         }
 
+        with(modelViewer.view) {
+            // on mobile, better use lower quality color buffer
+            renderQuality.hdrColorBuffer = View.QualityLevel.MEDIUM
+
+            // dynamic resolution often helps a lot
+            dynamicResolutionOptions.apply {
+                enabled = true
+                quality = View.QualityLevel.MEDIUM
+            }
+
+            // MSAA is needed with dynamic resolution MEDIUM
+            if (dynamicResolutionOptions.quality == View.QualityLevel.MEDIUM) {
+                multiSampleAntiAliasingOptions.enabled = true
+            }
+
+            // FXAA is pretty cheap and helps a lot
+            antiAliasing = View.AntiAliasing.FXAA
+
+            // ambient occlusion is the cheapest effect that adds a lot of quality
+            ambientOcclusionOptions.enabled = true
+
+            // bloom is pretty expensive but adds a fair amount of realism
+            bloomOptions.enabled = true
+        }
+
         createDefaultRenderables()
+
+        // Creating light is mandatory
         createIndirectLight()
-
-        val view = modelViewer.view
-
-        /*
-         * Note: The settings below are overridden when connecting to the remote UI.
-         */
-
-        // on mobile, better use lower quality color buffer
-        view.renderQuality = view.renderQuality.apply {
-            hdrColorBuffer = View.QualityLevel.MEDIUM
-        }
-
-        // dynamic resolution often helps a lot
-        view.dynamicResolutionOptions = view.dynamicResolutionOptions.apply {
-            enabled = true
-            quality = View.QualityLevel.MEDIUM
-        }
-
-        // MSAA is needed with dynamic resolution MEDIUM
-        view.multiSampleAntiAliasingOptions = view.multiSampleAntiAliasingOptions.apply {
-            enabled = true
-        }
-
-        // FXAA is pretty cheap and helps a lot
-        view.antiAliasing = View.AntiAliasing.FXAA
-
-        // ambient occlusion is the cheapest effect that adds a lot of quality
-        view.ambientOcclusionOptions = view.ambientOcclusionOptions.apply {
-            enabled = true
-        }
-
-        // bloom is pretty expensive but adds a fair amount of realism
-        view.bloomOptions = view.bloomOptions.apply {
-            enabled = true
-        }
     }
 
     private fun createDefaultRenderables() {
@@ -112,32 +104,33 @@ class MainActivity : Activity() {
     }
 
     private fun updateRootTransform() {
-        if (automation.viewerOptions.autoScaleEnabled) {
-            modelViewer.transformToUnitCube()
-        } else {
-            modelViewer.clearRootTransform()
-        }
+        modelViewer.clearRootTransform()
     }
 
     private fun createIndirectLight() {
         val engine = modelViewer.engine
         val scene = modelViewer.scene
         val ibl = "default_env"
+
+        // Create Light
         readCompressedAsset("envs/$ibl/${ibl}_ibl.ktx").let {
             scene.indirectLight = KTX1Loader.createIndirectLight(engine, it)
             scene.indirectLight!!.intensity = 30_000.0f
             viewerContent.indirectLight = modelViewer.scene.indirectLight
         }
+
+        // Create Skybox
         readCompressedAsset("envs/$ibl/${ibl}_skybox.ktx").let {
             scene.skybox = KTX1Loader.createSkybox(engine, it)
         }
     }
 
     private fun readCompressedAsset(assetName: String): ByteBuffer {
-        val input = assets.open(assetName)
-        val bytes = ByteArray(input.available())
-        input.read(bytes)
-        return ByteBuffer.wrap(bytes)
+        return assets.open(assetName).use { input ->
+            val bytes = ByteArray(input.available())
+            input.read(bytes)
+            ByteBuffer.wrap(bytes)
+        }
     }
 
     override fun onResume() {

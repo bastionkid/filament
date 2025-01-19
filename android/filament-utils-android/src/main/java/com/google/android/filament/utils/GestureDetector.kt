@@ -18,7 +18,10 @@ package com.google.android.filament.utils
 
 import android.view.MotionEvent
 import android.view.View
+import androidx.annotation.FloatRange
 import java.util.*
+import kotlin.math.max
+import kotlin.math.min
 
 /**
  * Responds to Android touch events and manages a camera manipulator.
@@ -29,7 +32,9 @@ class GestureDetector(private val view: View, private val manipulator: Manipulat
 
     // Simplified memento of MotionEvent, minimal but sufficient for our purposes.
     private data class TouchPair(var pt0: Float2, var pt1: Float2, var count: Int) {
+
         constructor() : this(Float2(0f), Float2(0f), 0)
+
         constructor(me: MotionEvent, height: Int) : this() {
             if (me.pointerCount >= 1) {
                 this.pt0 = Float2(me.getX(0), height - me.getY(0))
@@ -41,6 +46,7 @@ class GestureDetector(private val view: View, private val manipulator: Manipulat
                 this.count++
             }
         }
+
         val separation get() = distance(pt0, pt1)
         val midpoint get() = mix(pt0, pt1, 0.5f)
         val x: Int get() = midpoint.x.toInt()
@@ -54,9 +60,10 @@ class GestureDetector(private val view: View, private val manipulator: Manipulat
     private val tentativeZoomEvents = ArrayList<TouchPair>()
 
     private val kGestureConfidenceCount = 2
-    private val kPanConfidenceDistance = 4
-    private val kZoomConfidenceDistance = 10
-    private val kZoomSpeed = 1f / 10f
+    private val kPanConfidenceDistance = 4 // Distance in terms of screen pixel locations
+    private val kZoomConfidenceDistance = 10 // Distance in terms of screen pixel locations
+    private val kZoomRange = FloatRange(from = -5.0 / kZoomSpeed, to = 5.0 / kZoomSpeed) // 5.0 is derived from changing kZoomSpeed and verifying the relative zoom in/out movement
+    private var currentZoomDelta = 0.0
 
     fun onTouchEvent(event: MotionEvent) {
         val touch = TouchPair(event, view.height)
@@ -77,12 +84,59 @@ class GestureDetector(private val view: View, private val manipulator: Manipulat
                 if (currentGesture == Gesture.ZOOM) {
                     val d0 = previousTouch.separation
                     val d1 = touch.separation
-                    manipulator.scroll(touch.x, touch.y, (d0 - d1) * kZoomSpeed)
-                    previousTouch = touch
+                    val scrollDelta = (d0 - d1) * kZoomSpeed
+
+                    if (scrollDelta < 0) {
+                        // ensure that the currentZoomDelta is clamped to kZoomRange.from in case of zoom in
+                        if (currentZoomDelta > kZoomRange.from) {
+                            currentZoomDelta = max(kZoomRange.from, currentZoomDelta + scrollDelta)
+                        }
+                    } else {
+                        // ensure that the currentZoomDelta is clamped to kZoomRange.to in case of zoom out
+                        if (currentZoomDelta < kZoomRange.to) {
+                            currentZoomDelta = min(kZoomRange.to, currentZoomDelta + scrollDelta)
+                        }
+                    }
+
+                    // Here we limit the zoom in & out range
+                    if (currentZoomDelta > kZoomRange.from && currentZoomDelta < kZoomRange.to) {
+                        manipulator.scroll(touch.x, touch.y, scrollDelta)
+                        previousTouch = touch
+                    } else {
+                        endGesture()
+                    }
+
                     return
                 }
 
                 if (currentGesture != Gesture.NONE) {
+                    if (currentGesture == Gesture.ORBIT) {
+                        // Get the eye position
+                        val eyePosition = DoubleArray(3)
+                        manipulator.getLookAt(eyePosition, DoubleArray(3), DoubleArray(3))
+
+                        // Check if the orbit rotation is going up, because then only we want to
+                        // enforce Eye position y co-ordinate minimum threshold
+                        if (touch.y > previousTouch.y) {
+                            // Calculate maximum y axis movement allowed before if reaches threshold
+                            val maxAllowedYDelta = eyePosition[1] - kEyeYMinThreshold
+                            val maxYPixelMovementAllowed = (maxAllowedYDelta / kEyeYMovementPerPixel) + previousTouch.y
+
+                            // If the current touch will cause y movement beyond the threshold, then end gesture
+                            if (touch.y < maxYPixelMovementAllowed) {
+                                manipulator.grabUpdate(touch.x, touch.y)
+                            } else {
+                                manipulator.grabUpdate(touch.x, maxYPixelMovementAllowed.toInt())
+                                endGesture()
+                            }
+                        } else {
+                            manipulator.grabUpdate(touch.x, touch.y)
+                        }
+
+                        previousTouch = touch
+                        return
+                    }
+
                     manipulator.grabUpdate(touch.x, touch.y)
                     return
                 }
@@ -101,6 +155,7 @@ class GestureDetector(private val view: View, private val manipulator: Manipulat
                 if (isOrbitGesture()) {
                     manipulator.grabBegin(touch.x, touch.y, false)
                     currentGesture = Gesture.ORBIT
+                    previousTouch = touch
                     return
                 }
 
@@ -134,7 +189,11 @@ class GestureDetector(private val view: View, private val manipulator: Manipulat
         return tentativeOrbitEvents.size > kGestureConfidenceCount
     }
 
+    @Suppress("UNREACHABLE_CODE")
     private fun isPanGesture(): Boolean {
+        // Disable pan gesture
+        return false
+
         if (tentativePanEvents.size <= kGestureConfidenceCount) {
             return false
         }

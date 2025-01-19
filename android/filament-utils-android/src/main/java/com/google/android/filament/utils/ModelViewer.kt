@@ -29,9 +29,13 @@ import java.nio.Buffer
 
 private const val kNearPlane = 0.05f     // 5 cm
 private const val kFarPlane = 1000.0f    // 1 km
-private const val kAperture = 16f
+private const val kAperture = 24f // higher number increases depth of field and image looks more darker
 private const val kShutterSpeed = 1f / 125f
 private const val kSensitivity = 100f
+const val kOrbitSpeed = 0.001f
+const val kZoomSpeed = 0.1f
+const val kEyeYMovementPerPixel = kOrbitSpeed * 20 // 20 is derived from changing kOrbitSpeed and verifying the relative Eye y movement
+const val kEyeYMinThreshold = 1.5
 
 /**
  * Helps render glTF models into a [SurfaceView] or [TextureView] with an orbit controller.
@@ -39,11 +43,10 @@ private const val kSensitivity = 100f
  * `ModelViewer` owns a Filament engine, renderer, swapchain, view, and scene. It allows clients
  * to access these objects via read-only properties. The viewer can display only one glTF scene
  * at a time, which can be scaled and translated into the viewing frustum by calling
- * [transformToUnitCube]. All ECS entities can be accessed and modified via the [asset] property.
+ * [clearRootTransform]. All ECS entities can be accessed and modified via the [asset] property.
  *
  * For GLB files, clients can call [loadModelGlb] and pass in a [Buffer] with the contents of the
- * GLB file. For glTF files, clients can call [loadModelGltf] and pass in a [Buffer] with the JSON
- * contents, as well as a callback for loading external resources.
+ * GLB file.
  *
  * `ModelViewer` reduces much of the boilerplate required for simple Filament applications, but
  * clients still have the responsibility of adding an [IndirectLight] and [Skybox] to the scene.
@@ -59,9 +62,9 @@ private const val kSensitivity = 100f
  * See `sample-gltf-viewer` for a usage example.
  */
 class ModelViewer(
-        val engine: Engine,
-        private val uiHelper: UiHelper
-) : android.view.View.OnTouchListener {
+    val engine: Engine,
+    private val uiHelper: UiHelper
+) {
     var asset: FilamentAsset? = null
         private set
 
@@ -111,7 +114,6 @@ class ModelViewer(
     private var assetLoader: AssetLoader
     private var materialProvider: MaterialProvider
     private var resourceLoader: ResourceLoader
-    private val readyRenderables = IntArray(128) // add up to 128 entities at a time
 
     private val eyePos = DoubleArray(3)
     private val target = DoubleArray(3)
@@ -130,25 +132,22 @@ class ModelViewer(
 
         val (r, g, b) = Colors.cct(6_500.0f)
         LightManager.Builder(LightManager.Type.DIRECTIONAL)
-                .color(r, g, b)
-                .intensity(100_000.0f)
-                .direction(0.0f, -1.0f, 0.0f)
-                .castShadows(true)
-                .build(engine, light)
+            .color(r, g, b)
+            .intensity(100_000.0f)
+            .direction(0.0f, -1.0f, 0.0f)
+            .castShadows(true)
+            .build(engine, light)
 
         scene.addEntity(light)
     }
 
     constructor(
-            surfaceView: SurfaceView,
-            engine: Engine = Engine.create(),
-            uiHelper: UiHelper = UiHelper(UiHelper.ContextErrorPolicy.DONT_CHECK),
-            manipulator: Manipulator? = null
+        surfaceView: SurfaceView,
+        engine: Engine = Engine.create(),
+        uiHelper: UiHelper = UiHelper(UiHelper.ContextErrorPolicy.DONT_CHECK),
+        manipulator: Manipulator? = null
     ) : this(engine, uiHelper) {
-        cameraManipulator = manipulator ?: Manipulator.Builder()
-                .targetPosition(kDefaultObjectPosition.x, kDefaultObjectPosition.y, kDefaultObjectPosition.z)
-                .viewport(surfaceView.width, surfaceView.height)
-                .build(Manipulator.Mode.ORBIT)
+        cameraManipulator = manipulator ?: getDefaultCameraManipulator(surfaceView.width, surfaceView.height)
 
         this.surfaceView = surfaceView
         gestureDetector = GestureDetector(surfaceView, cameraManipulator)
@@ -160,15 +159,12 @@ class ModelViewer(
 
     @Suppress("unused")
     constructor(
-            textureView: TextureView,
-            engine: Engine = Engine.create(),
-            uiHelper: UiHelper = UiHelper(UiHelper.ContextErrorPolicy.DONT_CHECK),
-            manipulator: Manipulator? = null
+        textureView: TextureView,
+        engine: Engine = Engine.create(),
+        uiHelper: UiHelper = UiHelper(UiHelper.ContextErrorPolicy.DONT_CHECK),
+        manipulator: Manipulator? = null
     ) : this(engine, uiHelper) {
-        cameraManipulator = manipulator ?: Manipulator.Builder()
-                .targetPosition(kDefaultObjectPosition.x, kDefaultObjectPosition.y, kDefaultObjectPosition.z)
-                .viewport(textureView.width, textureView.height)
-                .build(Manipulator.Mode.ORBIT)
+        cameraManipulator = manipulator ?: getDefaultCameraManipulator(textureView.width, textureView.height)
 
         this.textureView = textureView
         gestureDetector = GestureDetector(textureView, cameraManipulator)
@@ -176,6 +172,16 @@ class ModelViewer(
         uiHelper.renderCallback = SurfaceCallback()
         uiHelper.attachTo(textureView)
         addDetachListener(textureView)
+    }
+
+    private fun getDefaultCameraManipulator(viewPortWidth: Int, viewPortHeight: Int): Manipulator {
+        return Manipulator.Builder()
+            .orbitHomePosition(kDefaultEyePosition.x, kDefaultEyePosition.y, kDefaultEyePosition.z)
+            .targetPosition(kDefaultTargetPosition.x, kDefaultTargetPosition.y, kDefaultTargetPosition.z)
+            .orbitSpeed(kOrbitSpeed, kOrbitSpeed)
+            .zoomSpeed(kZoomSpeed)
+            .viewport(viewPortWidth, viewPortHeight)
+            .build(Manipulator.Mode.ORBIT)
     }
 
     /**
@@ -191,63 +197,6 @@ class ModelViewer(
         }
     }
 
-    /**
-     * Loads a JSON-style glTF file and populates the Filament scene.
-     *
-     * The given callback is triggered for each requested resource.
-     */
-    fun loadModelGltf(buffer: Buffer, callback: (String) -> Buffer?) {
-        destroyModel()
-        asset = assetLoader.createAsset(buffer)
-        asset?.let { asset ->
-            for (uri in asset.resourceUris) {
-                val resourceBuffer = callback(uri)
-                if (resourceBuffer == null) {
-                    this.asset = null
-                    return
-                }
-                resourceLoader.addResourceData(uri, resourceBuffer)
-            }
-            resourceLoader.asyncBeginLoad(asset)
-            animator = asset.instance.animator
-            asset.releaseSourceData()
-        }
-    }
-
-    /**
-     * Loads a JSON-style glTF file and populates the Filament scene.
-     *
-     * The given callback is triggered from a worker thread for each requested resource.
-     */
-    fun loadModelGltfAsync(buffer: Buffer, callback: (String) -> Buffer) {
-        destroyModel()
-        asset = assetLoader.createAsset(buffer)
-        fetchResourcesJob = CoroutineScope(Dispatchers.IO).launch {
-            fetchResources(asset!!, callback)
-        }
-    }
-
-    /**
-     * Sets up a root transform on the current model to make it fit into a unit cube.
-     *
-     * @param centerPoint Coordinate of center point of unit cube, defaults to < 0, 0, -4 >
-     */
-    fun transformToUnitCube(centerPoint: Float3 = kDefaultObjectPosition) {
-        asset?.let { asset ->
-            val tm = engine.transformManager
-            var center = asset.boundingBox.center.let { v -> Float3(v[0], v[1], v[2]) }
-            val halfExtent = asset.boundingBox.halfExtent.let { v -> Float3(v[0], v[1], v[2]) }
-            val maxExtent = 2.0f * max(halfExtent)
-            val scaleFactor = 2.0f / maxExtent
-            center -= centerPoint / scaleFactor
-            val transform = scale(Float3(scaleFactor)) * translation(-center)
-            tm.setTransform(tm.getInstance(asset.root), transpose(transform).toFloatArray())
-        }
-    }
-
-    /**
-     * Removes the transformation that was set up via transformToUnitCube.
-     */
     fun clearRootTransform() {
         asset?.let {
             val tm = engine.transformManager
@@ -290,9 +239,10 @@ class ModelViewer(
         // Extract the camera basis from the helper and push it to the Filament camera.
         cameraManipulator.getLookAt(eyePos, target, upward)
         camera.lookAt(
-                eyePos[0], eyePos[1], eyePos[2],
-                target[0], target[1], target[2],
-                upward[0], upward[1], upward[2])
+            eyePos[0], eyePos[1], eyePos[2],
+            target[0], target[1], target[2],
+            upward[0], upward[1], upward[2],
+        )
 
         // Render the scene, unless the renderer wants to skip the frame.
         if (renderer.beginFrame(swapChain!!, frameTimeNanos)) {
@@ -302,16 +252,7 @@ class ModelViewer(
     }
 
     private fun populateScene(asset: FilamentAsset) {
-        val rcm = engine.renderableManager
-        var count = 0
-        val popRenderables = { count = asset.popRenderables(readyRenderables); count != 0 }
-        while (popRenderables()) {
-            for (i in 0 until count) {
-                val ri = rcm.getInstance(readyRenderables[i])
-                rcm.setScreenSpaceContactShadows(ri, true)
-            }
-            scene.addEntities(readyRenderables.take(count).toIntArray())
-        }
+        scene.addEntities(asset.renderableEntities)
         scene.addEntities(asset.lightEntities)
     }
 
@@ -346,29 +287,6 @@ class ModelViewer(
      */
     fun onTouchEvent(event: MotionEvent) {
         gestureDetector.onTouchEvent(event)
-    }
-
-    @SuppressWarnings("ClickableViewAccessibility")
-    override fun onTouch(view: android.view.View, event: MotionEvent): Boolean {
-        onTouchEvent(event)
-        return true
-    }
-
-    private suspend fun fetchResources(asset: FilamentAsset, callback: (String) -> Buffer) {
-        val items = HashMap<String, Buffer>()
-        val resourceUris = asset.resourceUris
-        for (resourceUri in resourceUris) {
-            items[resourceUri] = callback(resourceUri)
-        }
-
-        withContext(Dispatchers.Main) {
-            for ((uri, buffer) in items) {
-                resourceLoader.addResourceData(uri, buffer)
-            }
-            resourceLoader.asyncBeginLoad(asset)
-            animator = asset.instance.animator
-            asset.releaseSourceData()
-        }
     }
 
     private fun updateCameraProjection() {
@@ -414,6 +332,8 @@ class ModelViewer(
     }
 
     companion object {
-        private val kDefaultObjectPosition = Float3(0.0f, 0.0f, -4.0f)
+        // Cricket Pitch width is 2.64m & batsman wicket to bowler wickets length is 20.12m
+        private val kDefaultEyePosition = Float3(0.0f, 1.5f, 14.0f)
+        private val kDefaultTargetPosition = Float3(0.0f, 0.0f, -6f)
     }
 }

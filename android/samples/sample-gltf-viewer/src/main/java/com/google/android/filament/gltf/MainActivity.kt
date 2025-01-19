@@ -19,12 +19,29 @@ package com.google.android.filament.gltf
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.*
 import android.view.GestureDetector
+import com.google.android.filament.Box
+import com.google.android.filament.Entity
+import com.google.android.filament.EntityManager
+import com.google.android.filament.IndexBuffer
+import com.google.android.filament.Material
+import com.google.android.filament.RenderableManager
+import com.google.android.filament.RenderableManager.PrimitiveType
+import com.google.android.filament.VertexBuffer
+import com.google.android.filament.VertexBuffer.AttributeType
+import com.google.android.filament.VertexBuffer.VertexAttribute
 import com.google.android.filament.View
 import com.google.android.filament.utils.*
 import com.google.android.filament.utils.AutomationEngine.ViewerOptions
 import java.nio.ByteBuffer
+import java.nio.ByteOrder
+import java.nio.channels.Channels
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.sin
 
 class MainActivity : Activity() {
 
@@ -38,7 +55,6 @@ class MainActivity : Activity() {
     private val choreographer: Choreographer by lazy { Choreographer.getInstance() }
     private val frameScheduler = FrameCallback()
     private val modelViewer: ModelViewer by lazy { ModelViewer(surfaceView) }
-    private val viewerContent = AutomationEngine.ViewerContent()
 
     @SuppressLint("ClickableViewAccessibility")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -47,14 +63,6 @@ class MainActivity : Activity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         surfaceView = findViewById(R.id.main_sv)
-
-        with(viewerContent) {
-            view = modelViewer.view
-            sunlight = modelViewer.light
-            lightManager = modelViewer.engine.lightManager
-            scene = modelViewer.scene
-            renderer = modelViewer.renderer
-        }
 
         surfaceView.setOnTouchListener { _, event ->
             modelViewer.onTouchEvent(event)
@@ -116,7 +124,6 @@ class MainActivity : Activity() {
         readCompressedAsset("envs/$ibl/${ibl}_ibl.ktx").let {
             scene.indirectLight = KTX1Loader.createIndirectLight(engine, it)
             scene.indirectLight!!.intensity = 30_000.0f
-            viewerContent.indirectLight = modelViewer.scene.indirectLight
         }
 
         // Create Skybox

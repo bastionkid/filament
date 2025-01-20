@@ -24,6 +24,7 @@ import android.os.Looper
 import android.util.Log
 import android.view.*
 import com.google.android.filament.Box
+import com.google.android.filament.Colors
 import com.google.android.filament.Entity
 import com.google.android.filament.EntityManager
 import com.google.android.filament.IndexBuffer
@@ -37,6 +38,8 @@ import com.google.android.filament.View
 import com.google.android.filament.utils.*
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.nio.FloatBuffer
+import java.nio.ShortBuffer
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
@@ -60,6 +63,13 @@ class MainActivity : Activity() {
     private lateinit var triangleMaterial: Material
     private lateinit var triangleVertexBuffer: VertexBuffer
     private lateinit var triangleIndexBuffer: IndexBuffer
+
+    @Entity
+    private var lineEntity = 0
+
+    private lateinit var lineMaterial: Material
+    private lateinit var lineVertexBuffer: VertexBuffer
+    private lateinit var lineIndexBuffer: IndexBuffer
 
     @SuppressLint("ClickableViewAccessibility")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -94,9 +104,6 @@ class MainActivity : Activity() {
 
             // ambient occlusion is the cheapest effect that adds a lot of quality
             ambientOcclusionOptions.enabled = true
-
-            // bloom is pretty expensive but adds a fair amount of realism
-            bloomOptions.enabled = true
         }
 
         createDefaultRenderables()
@@ -116,6 +123,8 @@ class MainActivity : Activity() {
         updateRootTransform()
 
         addTriangle()
+
+        addLine()
     }
 
     private fun updateRootTransform() {
@@ -252,6 +261,75 @@ class MainActivity : Activity() {
         triangleIndexBuffer.setBuffer(modelViewer.engine, indexData)
     }
 
+    private fun addLine() {
+        val points = floatArrayOf(
+            -1f, 1f, 8f,     // Point 1
+            -0.5f, 0.8f, 5f, // Point 2
+            0.3f, 0.5f, 3f,  // Point 3
+            0.5f, 0.5f, 2f,  // Point 4
+            1f, 0.5f, 1f,    // Point 5
+        )
+
+        val lineIndices = shortArrayOf(
+            0, 1,  // Connect vertex 0 to vertex 1
+            1, 2,  // Connect vertex 1 to vertex 2
+            2, 3,  // Connect vertex 2 to vertex 3
+            3, 4,  // Connect vertex 3 to vertex 4
+        )
+
+        // Step 1: Create a Vertex Buffer
+        lineVertexBuffer = VertexBuffer.Builder()
+            .bufferCount(1)
+            .vertexCount(points.size / 3)
+            .attribute(
+                VertexAttribute.POSITION,
+                0,
+                AttributeType.FLOAT3,
+                0,
+                12
+            )
+            .build(modelViewer.engine)
+
+        val vertexData = FloatBuffer.allocate(points.size).apply {
+            put(points)
+            flip()
+        }
+        lineVertexBuffer.setBufferAt(modelViewer.engine, 0, vertexData)
+
+        // Step 2: Create an Index Buffer
+        lineIndexBuffer = IndexBuffer.Builder()
+            .indexCount(lineIndices.size)
+            .bufferType(IndexBuffer.Builder.IndexType.USHORT)
+            .build(modelViewer.engine)
+
+        val indexData = ShortBuffer.allocate(lineIndices.size).apply {
+            put(lineIndices)
+            flip()
+        }
+        lineIndexBuffer.setBuffer(modelViewer.engine, indexData)
+
+        // Step 3: Load the Material
+        readCompressedAsset("materials/line.filamat").let {
+            lineMaterial = Material.Builder().payload(it, it.remaining()).build(modelViewer.engine)
+            modelViewer.engine.flush()
+        }
+
+        val materialInstance = lineMaterial.createInstance()
+        materialInstance.setParameter("baseColor", Colors.RgbaType.SRGB, 0f, 0f, 0f, 1.0f) // Black color
+
+        // Step 4: Create a Renderable
+        lineEntity = EntityManager.get().create()
+
+        RenderableManager.Builder(1)
+            .boundingBox(Box(0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 0.01f))
+            .geometry(0, PrimitiveType.LINES, lineVertexBuffer, lineIndexBuffer)
+            .material(0, materialInstance)
+            .build(modelViewer.engine, lineEntity)
+
+        // Step 5: Add the Line to the Scene
+        modelViewer.scene.addEntity(lineEntity)
+    }
+
     override fun onResume() {
         super.onResume()
         choreographer.postFrameCallback(frameScheduler)
@@ -266,11 +344,17 @@ class MainActivity : Activity() {
         super.onDestroy()
         choreographer.removeFrameCallback(frameScheduler)
 
-        // Cleanup additional resources
+        // Cleanup triangle resources
         modelViewer.engine.destroyEntity(triangleEntity)
         modelViewer.engine.destroyVertexBuffer(triangleVertexBuffer)
         modelViewer.engine.destroyIndexBuffer(triangleIndexBuffer)
         modelViewer.engine.destroyMaterial(triangleMaterial)
+
+        // Cleanup line resources
+        modelViewer.engine.destroyEntity(lineEntity)
+        modelViewer.engine.destroyVertexBuffer(lineVertexBuffer)
+        modelViewer.engine.destroyIndexBuffer(lineIndexBuffer)
+        modelViewer.engine.destroyMaterial(lineMaterial)
     }
 
     inner class FrameCallback : Choreographer.FrameCallback {

@@ -40,9 +40,6 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.FloatBuffer
 import java.nio.ShortBuffer
-import kotlin.math.PI
-import kotlin.math.cos
-import kotlin.math.sin
 
 class MainActivity : Activity() {
 
@@ -177,9 +174,6 @@ class MainActivity : Activity() {
 
         // Add the entity to the scene to render it
         modelViewer.scene.addEntity(triangleEntity)
-
-        // Translate entity by 2 units along +ve y axis
-        modelViewer.engine.transformManager.translateEntityUsingIdentityM(y = 2f, renderable = triangleEntity)
     }
 
     private fun loadMaterial() {
@@ -200,8 +194,8 @@ class MainActivity : Activity() {
         val intSize = 4
         val floatSize = 4
         val shortSize = 2
-        // A vertex is a position + a color:
-        // 3 floats for XYZ position, 1 integer for color
+
+        // A vertex is a position + a color: 3 floats for XYZ position, 1 integer for color
         val vertexSize = 3 * floatSize + intSize
 
         // Define a vertex and a function to put a vertex in a ByteBuffer
@@ -216,23 +210,21 @@ class MainActivity : Activity() {
 
         // We are going to generate a single triangle
         val vertexCount = 3
-        val a1 = PI * 2.0 / 3.0
-        val a2 = PI * 4.0 / 3.0
 
         val vertexData = ByteBuffer.allocate(vertexCount * vertexSize)
             // It is important to respect the native byte order
             .order(ByteOrder.nativeOrder())
-            .put(Vertex(1.0f,              0.0f,              0.0f, 0xffff0000.toInt()))
-            .put(Vertex(cos(a1).toFloat(), sin(a1).toFloat(), 0.0f, 0xff00ff00.toInt()))
-            .put(Vertex(cos(a2).toFloat(), sin(a2).toFloat(), 0.0f, 0xff0000ff.toInt()))
-            // Make sure the cursor is pointing in the right place in the byte buffer
+            .put(Vertex( 1.0f, 2.0f, 0.0f, 0xffff0000.toInt()))
+            .put(Vertex(-1.0f, 3.0f, 0.0f, 0xff00ff00.toInt()))
+            .put(Vertex(-1.0f, 1.0f, 0.0f, 0xff0000ff.toInt()))
             .flip()
 
         // Declare the layout of our mesh
         triangleVertexBuffer = VertexBuffer.Builder()
             .bufferCount(1)
             .vertexCount(vertexCount)
-            // Because we interleave position and color data we must specify offset and stride
+            // Because we interleave position and color data (i.e. having both position and color
+            // data in same source) we must specify offset and stride.
             // We could use de-interleaved data by declaring two buffers and giving each
             // attribute a different buffer index
             .attribute(VertexAttribute.POSITION, 0, AttributeType.FLOAT3, 0,             vertexSize)
@@ -252,12 +244,17 @@ class MainActivity : Activity() {
             .putShort(0)
             .putShort(1)
             .putShort(2)
+            // To see other side of the face of the triangle comment above 3 indices and uncomment below 3 indices
+//            .putShort(2)
+//            .putShort(1)
+//            .putShort(0)
             .flip()
 
         triangleIndexBuffer = IndexBuffer.Builder()
-            .indexCount(3)
+            .indexCount(vertexCount)
             .bufferType(IndexBuffer.Builder.IndexType.USHORT)
             .build(modelViewer.engine)
+
         triangleIndexBuffer.setBuffer(modelViewer.engine, indexData)
     }
 

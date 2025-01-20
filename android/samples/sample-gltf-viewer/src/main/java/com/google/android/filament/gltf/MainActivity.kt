@@ -259,6 +259,9 @@ class MainActivity : Activity() {
     }
 
     private fun addLine() {
+        val floatSize = 4
+        val vertexSize = 3 * floatSize
+
         val points = floatArrayOf(
             -1f, 1f, 8f,     // Point 1
             -0.5f, 0.8f, 5f, // Point 2
@@ -266,6 +269,8 @@ class MainActivity : Activity() {
             0.5f, 0.5f, 2f,  // Point 4
             1f, 0.5f, 1f,    // Point 5
         )
+
+        val vertexCount = points.size / 3
 
         val lineIndices = shortArrayOf(
             0, 1,  // Connect vertex 0 to vertex 1
@@ -275,34 +280,28 @@ class MainActivity : Activity() {
         )
 
         // Step 1: Create a Vertex Buffer
+        val vertexData = FloatBuffer.allocate(points.size)
+            .put(points)
+            .flip()
+
         lineVertexBuffer = VertexBuffer.Builder()
             .bufferCount(1)
-            .vertexCount(points.size / 3)
-            .attribute(
-                VertexAttribute.POSITION,
-                0,
-                AttributeType.FLOAT3,
-                0,
-                12
-            )
+            .vertexCount(vertexCount)
+            .attribute(VertexAttribute.POSITION, 0, AttributeType.FLOAT3, 0, vertexSize)
             .build(modelViewer.engine)
 
-        val vertexData = FloatBuffer.allocate(points.size).apply {
-            put(points)
-            flip()
-        }
         lineVertexBuffer.setBufferAt(modelViewer.engine, 0, vertexData)
 
         // Step 2: Create an Index Buffer
+        val indexData = ShortBuffer.allocate(lineIndices.size)
+            .put(lineIndices)
+            .flip()
+
         lineIndexBuffer = IndexBuffer.Builder()
             .indexCount(lineIndices.size)
             .bufferType(IndexBuffer.Builder.IndexType.USHORT)
             .build(modelViewer.engine)
 
-        val indexData = ShortBuffer.allocate(lineIndices.size).apply {
-            put(lineIndices)
-            flip()
-        }
         lineIndexBuffer.setBuffer(modelViewer.engine, indexData)
 
         // Step 3: Load the Material

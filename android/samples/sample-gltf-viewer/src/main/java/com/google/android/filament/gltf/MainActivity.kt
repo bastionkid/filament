@@ -120,8 +120,8 @@ class MainActivity : Activity() {
         updateRootTransform()
 
         addTriangle()
-
-        addLine()
+//        addLine()
+        addQuadLine()
     }
 
     private fun updateRootTransform() {
@@ -324,6 +324,120 @@ class MainActivity : Activity() {
 
         // Step 5: Add the Line to the Scene
         modelViewer.scene.addEntity(lineEntity)
+    }
+
+    /**
+     * Create a quad line i.e. line between 2 points is made using a quad (i.e. 2 triangles).
+     * Here we generate 4 triangle vertices (required to draw 2 triangle where 2 vertices ate common between them)
+     * from 2 line vertices
+     */
+    private fun addQuadLine() {
+        val floatSize = 4
+        val vertexSize = 3 * floatSize
+
+        val thickLinePoints = createThickLineGeometry(
+            points = floatArrayOf(
+                -1f, 1f, 8f,     // Point 1
+                -0.5f, 0.8f, 5f, // Point 2
+                0.3f, 0.5f, 3f,  // Point 3
+                0.5f, 0.5f, 2f,  // Point 4
+                1f, 0.5f, 1f,    // Point 5
+            ),
+            thickness = 0.1f,
+        )
+
+        val vertexCount = thickLinePoints.size / 3
+
+        val lineIndices = shortArrayOf(
+            0, 1, 2,
+            2, 1, 3,
+            4, 5, 6,
+            6, 5, 7,
+            8, 9, 10,
+            10, 9, 11,
+            12, 13, 14,
+            14, 13, 15,
+        )
+
+        // Step 1: Create a Vertex Buffer
+        val vertexData = FloatBuffer.allocate(thickLinePoints.size)
+            .put(thickLinePoints)
+            .flip()
+
+        lineVertexBuffer = VertexBuffer.Builder()
+            .bufferCount(1)
+            .vertexCount(vertexCount)
+            .attribute(VertexAttribute.POSITION, 0, AttributeType.FLOAT3, 0, vertexSize)
+            .build(modelViewer.engine)
+
+        lineVertexBuffer.setBufferAt(modelViewer.engine, 0, vertexData)
+
+        // Step 2: Create an Index Buffer
+        val indexData = ShortBuffer.allocate(lineIndices.size)
+            .put(lineIndices)
+            .flip()
+
+        lineIndexBuffer = IndexBuffer.Builder()
+            .indexCount(lineIndices.size)
+            .bufferType(IndexBuffer.Builder.IndexType.USHORT)
+            .build(modelViewer.engine)
+
+        lineIndexBuffer.setBuffer(modelViewer.engine, indexData)
+
+        // Step 3: Load the Material
+        readCompressedAsset("materials/line.filamat").let {
+            lineMaterial = Material.Builder().payload(it, it.remaining()).build(modelViewer.engine)
+            modelViewer.engine.flush()
+        }
+
+        val materialInstance = lineMaterial.createInstance()
+        materialInstance.setParameter("baseColor", Colors.RgbaType.SRGB, 0f, 0f, 0f, 1.0f) // Black color
+
+        // Step 4: Create a Renderable
+        lineEntity = EntityManager.get().create()
+
+        RenderableManager.Builder(1)
+            .boundingBox(Box(0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 0.01f))
+            .geometry(0, PrimitiveType.TRIANGLES, lineVertexBuffer, lineIndexBuffer)
+            .material(0, materialInstance)
+            .build(modelViewer.engine, lineEntity)
+
+        // Step 5: Add the Line to the Scene
+        modelViewer.scene.addEntity(lineEntity)
+    }
+
+    private fun createThickLineGeometry(points: FloatArray, thickness: Float): FloatArray {
+        val vertices = mutableListOf<Float>()
+
+        for (i in 0 .. points.size - 6 step 3) {
+            val x1 = points[i]
+            val y1 = points[i + 1]
+            val z1 = points[i + 2]
+            val x2 = points[i + 3]
+            val y2 = points[i + 4]
+            val z2 = points[i + 5]
+
+            // Compute direction vector
+            val dx = x2 - x1
+            val dy = y2 - y1
+            val length = kotlin.math.sqrt((dx * dx + dy * dy).toDouble()).toFloat()
+
+            // Normalize and compute perpendicular vector
+            val nx = -dy / length * thickness / 2
+            val ny = dx / length * thickness / 2
+
+            // Add quad vertices
+            vertices.addAll(
+                listOf(
+                    x1 + nx, y1 + ny, z1, // Top-left
+                    x1 - nx, y1 - ny, z1, // Bottom-left
+                    x2 + nx, y2 + ny, z2, // Top-right
+                    x2 - nx, y2 - ny, z2  // Bottom-right
+                )
+            )
+        }
+
+        return vertices.toFloatArray()
     }
 
     override fun onResume() {

@@ -1,31 +1,21 @@
 package com.google.android.filament.gltf
 
-import android.opengl.Matrix
+import com.google.android.filament.Entity
 import com.google.android.filament.TransformManager
-import com.google.android.filament.utils.Float4
-import com.google.android.filament.utils.Mat4
 
 /**
  * Utilize Identity [android.opengl.Matrix] to translate Entity
  */
-fun TransformManager.translateEntityUsingIdentityM(x: Float = 0f, y: Float = 0f, z: Float = 0f, renderable: Int) {
-    val transformMatrix = FloatArray(16).apply {
-        Matrix.setIdentityM(this, 0)
-        Matrix.translateM(this, 0, x, y, z)
-    }
+fun TransformManager.translateEntity(x: Float = 0f, y: Float = 0f, z: Float = 0f, @Entity entity: Int) {
+    // First get current transform matrix for the entity to ensure all the non translation related
+    // properties are preserved after applying transformation
+    val currentTransformMatrix = FloatArray(16)
+    this.getTransform(this.getInstance(entity), currentTransformMatrix)
 
-    this.setTransform(this.getInstance(renderable), transformMatrix)
-}
+    // indices (12, 13, 14) represents (x, y, z) co-ordinates in the transformation matrix
+    currentTransformMatrix[12] = x
+    currentTransformMatrix[13] = y
+    currentTransformMatrix[14] = z
 
-/**
- * Utilize [com.google.android.filament.utils.Mat4] to translate Entity
- */
-fun TransformManager.translateEntityUsingMat4(x: Float = 0f, y: Float = 0f, z: Float = 0f, renderable: Int) {
-    val transformMatrix = Mat4(
-        x = Float4(x = 1f, w = x),
-        y = Float4(y = 1f, w = y),
-        z = Float4(z = 1f, w = z),
-    ).toFloatArray()
-
-    this.setTransform(this.getInstance(renderable), transformMatrix)
+    this.setTransform(this.getInstance(entity), currentTransformMatrix)
 }

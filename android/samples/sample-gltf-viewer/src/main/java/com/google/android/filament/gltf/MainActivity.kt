@@ -23,6 +23,7 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import android.view.*
+import android.widget.Button
 import com.google.android.filament.Box
 import com.google.android.filament.Colors
 import com.google.android.filament.Entity
@@ -50,6 +51,7 @@ class MainActivity : Activity() {
     }
 
     private lateinit var surfaceView: SurfaceView
+    private lateinit var btnToggleOverlay: Button
     private val choreographer: Choreographer by lazy { Choreographer.getInstance() }
     private val frameScheduler = FrameCallback()
     private val modelViewer: ModelViewer by lazy { ModelViewer(surfaceView) }
@@ -68,6 +70,8 @@ class MainActivity : Activity() {
     private lateinit var lineVertexBuffer: VertexBuffer
     private lateinit var lineIndexBuffer: IndexBuffer
 
+    private var pitchOverlayVisible = false
+
     @SuppressLint("ClickableViewAccessibility")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -75,6 +79,7 @@ class MainActivity : Activity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         surfaceView = findViewById(R.id.main_sv)
+        btnToggleOverlay = findViewById(R.id.btn_toggle_overlay)
 
         surfaceView.setOnTouchListener { _, event ->
             modelViewer.onTouchEvent(event)
@@ -107,6 +112,18 @@ class MainActivity : Activity() {
 
         // Creating light is mandatory
         createIndirectLight()
+
+        btnToggleOverlay.setOnClickListener {
+            if (pitchOverlayVisible) {
+                showEntity("pitch")
+                hideEntity("pitch_overlay")
+            } else {
+                showEntity("pitch_overlay")
+                hideEntity("pitch")
+            }
+
+            pitchOverlayVisible = !pitchOverlayVisible
+        }
     }
 
     private fun createDefaultRenderables() {
@@ -119,9 +136,24 @@ class MainActivity : Activity() {
         modelViewer.loadModelGlb(buffer)
         updateRootTransform()
 
-        addTriangle()
+//        addTriangle()
 //        addLine()
-        addQuadLine()
+//        addQuadLine()
+
+        showEntity("pitch")
+        hideEntity("pitch_overlay")
+    }
+
+    private fun showEntity(entityName: String) {
+        modelViewer.asset?.getFirstEntityByName(entityName)?.let { entity ->
+            modelViewer.engine.renderableManager.showEntity(entity)
+        }
+    }
+
+    private fun hideEntity(entityName: String) {
+        modelViewer.asset?.getFirstEntityByName(entityName)?.let { entity ->
+            modelViewer.engine.renderableManager.hideEntity(entity)
+        }
     }
 
     private fun updateRootTransform() {

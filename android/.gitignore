@@ -7,3 +7,4 @@
 /.idea/gradle.xml
 .DS_Store
 /build/
+/.kotlin

@@ -12,10 +12,18 @@
 
     <Button
         android:id="@+id/btn_toggle_overlay"
-        android:layout_width="wrap_content"
+        android:layout_width="140dp"
+        android:layout_height="wrap_content"
+        android:layout_above="@id/btn_toggle_ball_dots"
+        android:layout_alignEnd="@id/main_sv"
+        android:text="Toggle Overlay" />
+
+    <Button
+        android:id="@+id/btn_toggle_ball_dots"
+        android:layout_width="140dp"
         android:layout_height="wrap_content"
         android:layout_alignEnd="@id/main_sv"
         android:layout_alignBottom="@id/main_sv"
-        android:text="Toggle Overlay" />
+        android:text="Toggle Ball Dots" />
 
 </RelativeLayout>

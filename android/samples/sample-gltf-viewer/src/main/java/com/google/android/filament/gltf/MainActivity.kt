@@ -52,6 +52,7 @@ class MainActivity : Activity() {
 
     private lateinit var surfaceView: SurfaceView
     private lateinit var btnToggleOverlay: Button
+    private lateinit var btnToggleBallDots: Button
     private val choreographer: Choreographer by lazy { Choreographer.getInstance() }
     private val frameScheduler = FrameCallback()
     private val modelViewer: ModelViewer by lazy { ModelViewer(surfaceView) }
@@ -80,6 +81,7 @@ class MainActivity : Activity() {
 
         surfaceView = findViewById(R.id.main_sv)
         btnToggleOverlay = findViewById(R.id.btn_toggle_overlay)
+        btnToggleBallDots = findViewById(R.id.btn_toggle_ball_dots)
 
         surfaceView.setOnTouchListener { _, event ->
             modelViewer.onTouchEvent(event)
@@ -124,6 +126,36 @@ class MainActivity : Activity() {
 
             pitchOverlayVisible = !pitchOverlayVisible
         }
+
+        btnToggleBallDots.setOnClickListener {
+            showEntity("ball_1")
+            showEntity("ball_2")
+            showEntity("ball_3")
+            showEntity("ball_4")
+            showEntity("ball_5")
+            showEntity("ball_6")
+
+            placeBallDot("ball_1", getBallX(), 0.01f, getBallZ())
+            placeBallDot("ball_2", getBallX(), 0.01f, getBallZ())
+            placeBallDot("ball_3", getBallX(), 0.01f, getBallZ())
+            placeBallDot("ball_4", getBallX(), 0.01f, getBallZ())
+            placeBallDot("ball_5", getBallX(), 0.01f, getBallZ())
+            placeBallDot("ball_6", getBallX(), 0.01f, getBallZ())
+        }
+    }
+
+    /**
+     * x values are constrained to be in [-1, 0.5] meters
+     */
+    private fun getBallX(): Float {
+        return -1f + (1.5f * Math.random().toFloat())
+    }
+
+    /**
+     * z values are constrained to be in [-10, 0] meters
+     */
+    private fun getBallZ(): Float {
+        return -(10 * Math.random().toFloat())
     }
 
     private fun createDefaultRenderables() {
@@ -190,6 +222,17 @@ class MainActivity : Activity() {
             val bytes = ByteArray(input.available())
             input.read(bytes)
             ByteBuffer.wrap(bytes)
+        }
+    }
+
+    private fun placeBallDot(entityName: String, x: Float, y: Float, z: Float) {
+        modelViewer.asset?.getFirstEntityByName(entityName)?.let { entity ->
+            modelViewer.engine.transformManager.translateEntity(
+                x = x,
+                y = y,
+                z = z,
+                entity = entity,
+            )
         }
     }
 

@@ -142,6 +142,14 @@ class MainActivity : Activity() {
 
         showEntity("pitch")
         hideEntity("pitch_overlay")
+
+        // hide all the ball dots
+        hideEntity("ball_1")
+        hideEntity("ball_2")
+        hideEntity("ball_3")
+        hideEntity("ball_4")
+        hideEntity("ball_5")
+        hideEntity("ball_6")
     }
 
     private fun showEntity(entityName: String) {

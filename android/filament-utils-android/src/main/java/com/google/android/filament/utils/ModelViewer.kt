@@ -197,6 +197,19 @@ class ModelViewer(
         }
     }
 
+    /**
+     * Loads a JSON-style glTF file and populates the Filament scene.
+     *
+     * The given callback is triggered from a worker thread for each requested resource.
+     */
+    fun loadModelGltfAsync(buffer: Buffer, callback: (String) -> Buffer) {
+        destroyModel()
+        asset = assetLoader.createAsset(buffer)
+        fetchResourcesJob = CoroutineScope(Dispatchers.IO).launch {
+            fetchResources(asset!!, callback)
+        }
+    }
+
     fun clearRootTransform() {
         asset?.let {
             val tm = engine.transformManager
@@ -287,6 +300,23 @@ class ModelViewer(
      */
     fun onTouchEvent(event: MotionEvent) {
         gestureDetector.onTouchEvent(event)
+    }
+
+    private suspend fun fetchResources(asset: FilamentAsset, callback: (String) -> Buffer) {
+        val items = HashMap<String, Buffer>()
+        val resourceUris = asset.resourceUris
+        for (resourceUri in resourceUris) {
+            items[resourceUri] = callback(resourceUri)
+        }
+
+        withContext(Dispatchers.Main) {
+            for ((uri, buffer) in items) {
+                resourceLoader.addResourceData(uri, buffer)
+            }
+            resourceLoader.asyncBeginLoad(asset)
+            animator = asset.instance.animator
+            asset.releaseSourceData()
+        }
     }
 
     private fun updateCameraProjection() {

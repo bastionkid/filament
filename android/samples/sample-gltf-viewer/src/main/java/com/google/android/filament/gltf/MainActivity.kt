@@ -327,10 +327,6 @@ class MainActivity : Activity() {
             .putShort(0)
             .putShort(1)
             .putShort(2)
-            // To see other side of the face of the triangle comment above 3 indices and uncomment below 3 indices
-//            .putShort(2)
-//            .putShort(1)
-//            .putShort(0)
             .flip()
 
         triangleIndexBuffer = IndexBuffer.Builder()

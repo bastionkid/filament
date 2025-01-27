@@ -364,6 +364,6 @@ class ModelViewer(
     companion object {
         // Cricket Pitch width is 2.64m & batsman wicket to bowler wickets length is 20.12m
         private val kDefaultEyePosition = Float3(0.0f, 1.5f, 14.0f)
-        private val kDefaultTargetPosition = Float3(0.0f, 0.0f, -6f)
+        private val kDefaultTargetPosition = Float3(0.0f, 0.0f, -4f)
     }
 }

@@ -135,12 +135,12 @@ class MainActivity : Activity() {
             showEntity("ball_5")
             showEntity("ball_6")
 
-            placeBallDot("ball_1", getBallX(), 0.01f, getBallZ())
-            placeBallDot("ball_2", getBallX(), 0.01f, getBallZ())
-            placeBallDot("ball_3", getBallX(), 0.01f, getBallZ())
-            placeBallDot("ball_4", getBallX(), 0.01f, getBallZ())
-            placeBallDot("ball_5", getBallX(), 0.01f, getBallZ())
-            placeBallDot("ball_6", getBallX(), 0.01f, getBallZ())
+            placeBallDot("ball_1", getBallX(), 0.025f, getBallZ())
+            placeBallDot("ball_2", getBallX(), 0.025f, getBallZ())
+            placeBallDot("ball_3", getBallX(), 0.025f, getBallZ())
+            placeBallDot("ball_4", getBallX(), 0.025f, getBallZ())
+            placeBallDot("ball_5", getBallX(), 0.025f, getBallZ())
+            placeBallDot("ball_6", getBallX(), 0.025f, getBallZ())
         }
     }
 

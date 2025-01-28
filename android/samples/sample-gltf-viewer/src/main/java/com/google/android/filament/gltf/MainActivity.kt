@@ -206,22 +206,14 @@ class MainActivity : Activity() {
         val ibl = "default_env"
 
         // Create Light
-        readCompressedAsset("envs/$ibl/${ibl}_ibl.ktx").let {
+        assets.readCompressedAsset("envs/$ibl/${ibl}_ibl.ktx").let {
             scene.indirectLight = KTX1Loader.createIndirectLight(engine, it)
             scene.indirectLight!!.intensity = 30_000.0f
         }
 
         // Create Skybox
-        readCompressedAsset("envs/$ibl/${ibl}_skybox.ktx").let {
+        assets.readCompressedAsset("envs/$ibl/${ibl}_skybox.ktx").let {
             scene.skybox = KTX1Loader.createSkybox(engine, it)
-        }
-    }
-
-    private fun readCompressedAsset(assetName: String): ByteBuffer {
-        return assets.open(assetName).use { input ->
-            val bytes = ByteArray(input.available())
-            input.read(bytes)
-            ByteBuffer.wrap(bytes)
         }
     }
 
@@ -260,7 +252,7 @@ class MainActivity : Activity() {
     }
 
     private fun loadMaterial() {
-        readCompressedAsset("materials/baked_color.filamat").let {
+        assets.readCompressedAsset("materials/baked_color.filamat").let {
             triangleMaterial = Material.Builder().payload(it, it.remaining()).build(modelViewer.engine)
             triangleMaterial.compile(
                 Material.CompilerPriorityQueue.HIGH,
@@ -384,7 +376,7 @@ class MainActivity : Activity() {
         lineIndexBuffer.setBuffer(modelViewer.engine, indexData)
 
         // Step 3: Load the Material
-        readCompressedAsset("materials/line.filamat").let {
+        assets.readCompressedAsset("materials/line.filamat").let {
             lineMaterial = Material.Builder().payload(it, it.remaining()).build(modelViewer.engine)
             modelViewer.engine.flush()
         }
@@ -464,7 +456,7 @@ class MainActivity : Activity() {
         lineIndexBuffer.setBuffer(modelViewer.engine, indexData)
 
         // Step 3: Load the Material
-        readCompressedAsset("materials/line.filamat").let {
+        assets.readCompressedAsset("materials/line.filamat").let {
             lineMaterial = Material.Builder().payload(it, it.remaining()).build(modelViewer.engine)
             modelViewer.engine.flush()
         }

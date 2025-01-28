@@ -32,6 +32,7 @@ import com.google.android.filament.IndexBuffer
 import com.google.android.filament.Material
 import com.google.android.filament.RenderableManager
 import com.google.android.filament.RenderableManager.PrimitiveType
+import com.google.android.filament.TextureSampler
 import com.google.android.filament.VertexBuffer
 import com.google.android.filament.VertexBuffer.AttributeType
 import com.google.android.filament.VertexBuffer.VertexAttribute
@@ -70,6 +71,13 @@ class MainActivity : Activity() {
     private lateinit var lineMaterial: Material
     private lateinit var lineVertexBuffer: VertexBuffer
     private lateinit var lineIndexBuffer: IndexBuffer
+
+    @Entity
+    private var transparentEntity = 0
+
+    private lateinit var transparentMaterial: Material
+    private lateinit var transparentVertexBuffer: VertexBuffer
+    private lateinit var transparentIndexBuffer: IndexBuffer
 
     private var pitchOverlayVisible = false
 
@@ -171,6 +179,7 @@ class MainActivity : Activity() {
 //        addTriangle()
 //        addLine()
 //        addQuadLine()
+//        addTransparentTexture()
 
         showEntity("pitch")
         hideEntity("pitch_overlay")
@@ -511,6 +520,94 @@ class MainActivity : Activity() {
         return vertices.toFloatArray()
     }
 
+    private fun addTransparentTexture() {
+        val floatSize = 4
+        val vertexSize = 3 * floatSize
+        val uvSize = 2 * floatSize
+
+        // Define vertex points. Ensure that the width to height ratio matched that os the asset.
+        // Better way to identify the aspect ratio is via first loading the asset into bitmap and
+        // then get width & height
+        val vertexPoints = floatArrayOf(
+            -1.0f, 0.683f, 0.0f, // Top-left
+            -1.0f, 0.0f, 0.0f, // Bottom-left
+            1.0f, 0.683f, 0.0f,  // Top-right
+            1.0f, 0.0f, 0.0f,  // Bottom-right
+        )
+
+        val vertexCount = vertexPoints.size / 3
+
+        // Create vertex data and set it to buffer
+        val vertexData = FloatBuffer.allocate(vertexPoints.size)
+            .put(vertexPoints)
+            .flip()
+
+        // This will be used for texture mapping. This follows 2d mapping as we're going to
+        // use 2d texture.
+        // Note: Ensure that the uvPoints ordering matches vertexPoints ordering
+        val uvPoints = floatArrayOf(
+            0.0f, 1.0f, // Top-left
+            0.0f, 0.0f, // Bottom-left
+            1.0f, 1.0f,  // Top-right
+            1.0f, 0.0f, // Bottom-right
+        )
+
+        val uvData = FloatBuffer.allocate(uvPoints.size)
+            .put(uvPoints)
+            .flip()
+
+        triangleVertexBuffer = VertexBuffer.Builder()
+            .bufferCount(2)
+            .vertexCount(vertexCount)
+            .attribute(VertexAttribute.POSITION, 0, AttributeType.FLOAT3, 0, vertexSize)
+            .attribute(VertexAttribute.UV0, 1, AttributeType.FLOAT2, 0, uvSize)
+            .build(modelViewer.engine)
+
+        triangleVertexBuffer.setBufferAt(modelViewer.engine, 0, vertexData)
+        triangleVertexBuffer.setBufferAt(modelViewer.engine, 1, uvData)
+
+        // Define vertex indices which represents triangles
+        val indices = shortArrayOf(
+            0, 1, 2,
+            2, 1, 3,
+        )
+
+        // Create index data and set it to buffer
+        val indexData = ShortBuffer.allocate(indices.size)
+            .put(indices)
+            .flip()
+
+        triangleIndexBuffer = IndexBuffer.Builder()
+            .indexCount(indices.size)
+            .bufferType(IndexBuffer.Builder.IndexType.USHORT)
+            .build(modelViewer.engine)
+
+        triangleIndexBuffer.setBuffer(modelViewer.engine, indexData)
+
+        // Load material
+        assets.readCompressedAsset("materials/transparent_image.filamat").also {
+            transparentMaterial = Material.Builder()
+                .payload(it, it.remaining())
+                .build(modelViewer.engine)
+        }
+
+        val materialInstance = transparentMaterial.createInstance().apply {
+            setParameter("texture", modelViewer.engine.buildTextureFromImageResource(R.drawable.text_yorker, resources), TextureSampler())
+        }
+
+        // Create entity
+        transparentEntity = EntityManager.get().create()
+
+        RenderableManager.Builder(1)
+            .boundingBox(Box(0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 0.01f))
+            .geometry(0, PrimitiveType.TRIANGLES, triangleVertexBuffer, triangleIndexBuffer, 0, triangleIndexBuffer.indexCount)
+            .material(0, materialInstance)
+            .build(modelViewer.engine, transparentEntity)
+
+        // Add the entity to the scene to render it
+        modelViewer.scene.addEntity(transparentEntity)
+    }
+
     override fun onResume() {
         super.onResume()
         choreographer.postFrameCallback(frameScheduler)
@@ -539,6 +636,14 @@ class MainActivity : Activity() {
             modelViewer.engine.destroyVertexBuffer(lineVertexBuffer)
             modelViewer.engine.destroyIndexBuffer(lineIndexBuffer)
             modelViewer.engine.destroyMaterial(lineMaterial)
+        }
+
+        // Cleanup transparent texture resources
+        if (::transparentVertexBuffer.isInitialized) {
+            modelViewer.engine.destroyEntity(transparentEntity)
+            modelViewer.engine.destroyVertexBuffer(transparentVertexBuffer)
+            modelViewer.engine.destroyIndexBuffer(transparentIndexBuffer)
+            modelViewer.engine.destroyMaterial(transparentMaterial)
         }
     }
 

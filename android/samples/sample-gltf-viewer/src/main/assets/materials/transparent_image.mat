@@ -1,0 +1,22 @@
+material {
+    name : "TexturedTransparent",
+    shadingModel : lit,
+    blending : transparent,
+    transparency : twoPassesTwoSides,
+    parameters : [
+        {
+           type : sampler2d,
+           name : texture
+        }
+    ],
+    requires : [
+        uv0
+    ]
+}
+
+fragment {
+    void material(inout MaterialInputs material) {
+        prepareMaterial(material);
+        material.baseColor = texture(materialParams_texture, getUV0());
+    }
+}

@@ -534,16 +534,20 @@ class MainActivity : Activity() {
         choreographer.removeFrameCallback(frameScheduler)
 
         // Cleanup triangle resources
-        modelViewer.engine.destroyEntity(triangleEntity)
-        modelViewer.engine.destroyVertexBuffer(triangleVertexBuffer)
-        modelViewer.engine.destroyIndexBuffer(triangleIndexBuffer)
-        modelViewer.engine.destroyMaterial(triangleMaterial)
+        if (::triangleVertexBuffer.isInitialized) {
+            modelViewer.engine.destroyEntity(triangleEntity)
+            modelViewer.engine.destroyVertexBuffer(triangleVertexBuffer)
+            modelViewer.engine.destroyIndexBuffer(triangleIndexBuffer)
+            modelViewer.engine.destroyMaterial(triangleMaterial)
+        }
 
         // Cleanup line resources
-        modelViewer.engine.destroyEntity(lineEntity)
-        modelViewer.engine.destroyVertexBuffer(lineVertexBuffer)
-        modelViewer.engine.destroyIndexBuffer(lineIndexBuffer)
-        modelViewer.engine.destroyMaterial(lineMaterial)
+        if (::lineVertexBuffer.isInitialized) {
+            modelViewer.engine.destroyEntity(lineEntity)
+            modelViewer.engine.destroyVertexBuffer(lineVertexBuffer)
+            modelViewer.engine.destroyIndexBuffer(lineIndexBuffer)
+            modelViewer.engine.destroyMaterial(lineMaterial)
+        }
     }
 
     inner class FrameCallback : Choreographer.FrameCallback {

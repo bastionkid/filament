@@ -242,6 +242,18 @@ class ModelViewer(
         }
     }
 
+    fun showEntity(entityName: String) {
+        asset?.getFirstEntityByName(entityName)?.let { entity ->
+            engine.renderableManager.showEntity(entity)
+        }
+    }
+
+    fun hideEntity(entityName: String) {
+        asset?.getFirstEntityByName(entityName)?.let { entity ->
+            engine.renderableManager.hideEntity(entity)
+        }
+    }
+
     /**
      * Frees all entities associated with the most recently-loaded model.
      */

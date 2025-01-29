@@ -22,7 +22,9 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
-import android.view.*
+import android.view.Choreographer
+import android.view.SurfaceView
+import android.view.WindowManager
 import android.widget.Button
 import com.google.android.filament.Box
 import com.google.android.filament.Colors
@@ -37,7 +39,9 @@ import com.google.android.filament.VertexBuffer
 import com.google.android.filament.VertexBuffer.AttributeType
 import com.google.android.filament.VertexBuffer.VertexAttribute
 import com.google.android.filament.View
-import com.google.android.filament.utils.*
+import com.google.android.filament.utils.KTX1Loader
+import com.google.android.filament.utils.ModelViewer
+import com.google.android.filament.utils.Utils
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.FloatBuffer
@@ -125,23 +129,23 @@ class MainActivity : Activity() {
 
         btnToggleOverlay.setOnClickListener {
             if (pitchOverlayVisible) {
-                showEntity("pitch")
-                hideEntity("pitch_overlay")
+                modelViewer.showEntity("pitch")
+                modelViewer.hideEntity("pitch_overlay")
             } else {
-                showEntity("pitch_overlay")
-                hideEntity("pitch")
+                modelViewer.showEntity("pitch_overlay")
+                modelViewer.hideEntity("pitch")
             }
 
             pitchOverlayVisible = !pitchOverlayVisible
         }
 
         btnToggleBallDots.setOnClickListener {
-            showEntity("ball_1")
-            showEntity("ball_2")
-            showEntity("ball_3")
-            showEntity("ball_4")
-            showEntity("ball_5")
-            showEntity("ball_6")
+            modelViewer.showEntity("ball_1")
+            modelViewer.showEntity("ball_2")
+            modelViewer.showEntity("ball_3")
+            modelViewer.showEntity("ball_4")
+            modelViewer.showEntity("ball_5")
+            modelViewer.showEntity("ball_6")
 
             placeBallDot("ball_1", getBallX(), 0.025f, getBallZ())
             placeBallDot("ball_2", getBallX(), 0.025f, getBallZ())
@@ -181,28 +185,16 @@ class MainActivity : Activity() {
 //        addQuadLine()
 //        addTransparentTexture()
 
-        showEntity("pitch")
-        hideEntity("pitch_overlay")
+        modelViewer.showEntity("pitch")
+        modelViewer.hideEntity("pitch_overlay")
 
         // hide all the ball dots
-        hideEntity("ball_1")
-        hideEntity("ball_2")
-        hideEntity("ball_3")
-        hideEntity("ball_4")
-        hideEntity("ball_5")
-        hideEntity("ball_6")
-    }
-
-    private fun showEntity(entityName: String) {
-        modelViewer.asset?.getFirstEntityByName(entityName)?.let { entity ->
-            modelViewer.engine.renderableManager.showEntity(entity)
-        }
-    }
-
-    private fun hideEntity(entityName: String) {
-        modelViewer.asset?.getFirstEntityByName(entityName)?.let { entity ->
-            modelViewer.engine.renderableManager.hideEntity(entity)
-        }
+        modelViewer.hideEntity("ball_1")
+        modelViewer.hideEntity("ball_2")
+        modelViewer.hideEntity("ball_3")
+        modelViewer.hideEntity("ball_4")
+        modelViewer.hideEntity("ball_5")
+        modelViewer.hideEntity("ball_6")
     }
 
     private fun updateRootTransform() {

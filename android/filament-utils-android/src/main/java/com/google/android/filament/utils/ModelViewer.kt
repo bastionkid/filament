@@ -244,12 +244,16 @@ class ModelViewer(
 
     fun showEntity(entityName: String) {
         asset?.getFirstEntityByName(entityName)?.let { entity ->
+            if (entity == 0) return
+
             engine.renderableManager.showEntity(entity)
         }
     }
 
     fun hideEntity(entityName: String) {
         asset?.getFirstEntityByName(entityName)?.let { entity ->
+            if (entity == 0) return
+
             engine.renderableManager.hideEntity(entity)
         }
     }

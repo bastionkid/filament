@@ -220,6 +220,8 @@ class MainActivity : Activity() {
 
     private fun placeBallDot(entityName: String, x: Float, y: Float, z: Float) {
         modelViewer.asset?.getFirstEntityByName(entityName)?.let { entity ->
+            if (entity == 0) return
+
             modelViewer.engine.transformManager.translateEntity(
                 x = x,
                 y = y,

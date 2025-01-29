@@ -54,9 +54,22 @@ using namespace camutils;
 const double kNearPlane = 0.05;   // 5 cm
 const double kFarPlane = 1000.0;  // 1 km
 const float kScaleMultiplier = 100.0f;
-const float kAperture = 16.0f;
+const float kAperture = 24.0f; // higher number increases depth of field and image looks more darker
 const float kShutterSpeed = 1.0f / 125.0f;
 const float kSensitivity = 100.0f;
+const float kFocalLength = 28.0f;
+const float kOrbitSpeed = 0.001f;
+const float kZoomSpeed = 0.1f;
+const float kEyeYMovementPerPixel = kOrbitSpeed * 20.0f; // 20 is derived from changing kOrbitSpeed and verifying the relative Eye y movement
+const float kEyeYMinThreshold = 1.5f;
+
+// Cricket Pitch width is 2.64m & batsman wicket to bowler wickets length is 20.12m
+const float kDefaultEyePositionX = 0.0f;
+const float kDefaultEyePositionY = 1.55f;
+const float kDefaultEyePositionZ = 14.0f;
+const float kDefaultTargetPositionX = 0.0f;
+const float kDefaultTargetPositionY = 0.0f;
+const float kDefaultTargetPositionZ = -4.0f;
 
 @interface FILModelView ()
 
@@ -122,7 +135,7 @@ const float kSensitivity = 100.0f;
     _view->setScene(_scene);
     _view->setCamera(_camera);
 
-    _cameraFocalLength = 28.0f;
+    _cameraFocalLength = kFocalLength;
     _camera->setExposure(kAperture, kShutterSpeed, kSensitivity);
 
     _swapChain = _engine->createSwapChain((__bridge void*)self.layer);
@@ -139,15 +152,18 @@ const float kSensitivity = 100.0f;
     _resourceLoader->addTextureProvider("image/jpeg", _stbDecoder);
     _resourceLoader->addTextureProvider("image/ktx2", _ktxDecoder);
 
-    _manipulator =
-            Manipulator<float>::Builder().orbitHomePosition(0.0f, 0.0f, 4.0f).build(Mode::ORBIT);
+    _manipulator = Manipulator<float>::Builder()
+        .orbitHomePosition(kDefaultEyePositionX, kDefaultEyePositionY, kDefaultEyePositionZ)
+        .targetPosition(kDefaultTargetPositionX, kDefaultTargetPositionY, kDefaultTargetPositionZ)
+        .orbitSpeed(kOrbitSpeed, kOrbitSpeed)
+        .zoomSpeed(kZoomSpeed)
+        .build(Mode::ORBIT);
 
     // Set up pan and pinch gesture recognizers, used to orbit, zoom, and translate the camera.
     _panRecognizer = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(didPan:)];
     _panRecognizer.minimumNumberOfTouches = 1;
     _panRecognizer.maximumNumberOfTouches = 2;
-    _pinchRecognizer = [[UIPinchGestureRecognizer alloc] initWithTarget:self
-                                                                 action:@selector(didPinch:)];
+    _pinchRecognizer = [[UIPinchGestureRecognizer alloc] initWithTarget:self action:@selector(didPinch:)];
 
     [self addGestureRecognizer:_panRecognizer];
     [self addGestureRecognizer:_pinchRecognizer];
@@ -215,6 +231,16 @@ const float kSensitivity = 100.0f;
     tm.setTransform(tm.getInstance(_asset->getRoot()), transform);
 }
 
+- (void)transformToRoot {
+    if (!_asset) {
+        return;
+    }
+    auto& tm = _engine->getTransformManager();
+    // Use Identity matrix as transform
+    auto transform = math::mat4f();
+    tm.setTransform(tm.getInstance(_asset->getRoot()), transform);
+}
+
 - (void)loadModelGlb:(NSData*)buffer {
     [self destroyModel];
     _asset = _assetLoader->createAsset(
@@ -270,6 +296,40 @@ const float kSensitivity = 100.0f;
         _renderer->render(_view);
         _renderer->endFrame();
     }
+}
+
+- (void)showEntity:(NSString*)entityName {
+    Entity entity = _asset->getFirstEntityByName([entityName UTF8String]);
+    auto& rm = _engine->getRenderableManager();
+    
+    if (rm.hasComponent(entity)) {
+        rm.setLayerMask(rm.getInstance(entity), 0xFF, 1);
+    }
+}
+
+- (void)hideEntity:(NSString*)entityName {
+    Entity entity = _asset->getFirstEntityByName([entityName UTF8String]);
+    auto& rm = _engine->getRenderableManager();
+    
+    if (rm.hasComponent(entity)) {
+        rm.setLayerMask(rm.getInstance(entity), 0xFF, 0);
+    }
+}
+
+- (void)translateEntity:(float)x :(float)y :(float)z :(NSString*)entityName {
+    Entity entity = _asset->getFirstEntityByName([entityName UTF8String]);
+    auto& tm = _engine->getTransformManager();
+    
+    // First get current transform matrix for the entity to ensure all the non translation related
+    // properties are preserved after applying transformation
+    auto transform = tm.getTransform(tm.getInstance(entity));
+    
+    // indices (12, 13, 14) represents (x, y, z) co-ordinates in the transformation matrix
+    transform[3][0] = x;
+    transform[3][1] = y;
+    transform[3][2] = z;
+    
+    tm.setTransform(tm.getInstance(entity), transform);
 }
 
 - (void)dealloc {

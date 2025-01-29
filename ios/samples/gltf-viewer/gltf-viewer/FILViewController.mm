@@ -78,10 +78,51 @@ const float kToastDelayDuration = 2.0f;
                                                name:UIApplicationDidBecomeActiveNotification
                                              object:nil];
 
+    // on mobile, better use lower quality color buffer
+    RenderQuality renderQuality = RenderQuality();
+    renderQuality.hdrColorBuffer = QualityLevel::MEDIUM;
+    self.modelView.view->setRenderQuality(renderQuality);
+    
+    // dynamic resolution often helps a lot
+    DynamicResolutionOptions dynamicResolutionOptions = DynamicResolutionOptions();
+    dynamicResolutionOptions.enabled = true;
+    dynamicResolutionOptions.quality = QualityLevel::MEDIUM;
+    self.modelView.view->setDynamicResolutionOptions(dynamicResolutionOptions);
+    
+    // MSAA is needed with dynamic resolution MEDIUM
+    if (dynamicResolutionOptions.quality == QualityLevel::MEDIUM) {
+        MultiSampleAntiAliasingOptions multiSampleAntiAliasingOptions = MultiSampleAntiAliasingOptions();
+        multiSampleAntiAliasingOptions.enabled = true;
+        self.modelView.view->setMultiSampleAntiAliasingOptions(multiSampleAntiAliasingOptions);
+    }
+    
+    // FXAA is pretty cheap and helps a lot
+    self.modelView.view->setAntiAliasing(AntiAliasing::FXAA);
+    
+    // ambient occlusion is the cheapest effect that adds a lot of quality
+    self.modelView.view->setAmbientOcclusion(View::AmbientOcclusion::SSAO);
+    
     [self createDefaultRenderables];
     
     // Creating light is mandatory
     [self createLights];
+    
+    [self.modelView showEntity:@"pitch_overlay"];
+    [self.modelView hideEntity:@"pitch"];
+    
+    [self.modelView showEntity:@"ball_1"];
+    [self.modelView showEntity:@"ball_2"];
+    [self.modelView showEntity:@"ball_3"];
+    [self.modelView showEntity:@"ball_4"];
+    [self.modelView showEntity:@"ball_5"];
+    [self.modelView showEntity:@"ball_6"];
+    
+    [self.modelView translateEntity:-1.0f :0.025f :-6.0f :@"ball_1"];
+    [self.modelView translateEntity:-0.25f :0.025f :-4.5f :@"ball_2"];
+    [self.modelView translateEntity:-0.50f :0.025f :-3.25f :@"ball_3"];
+    [self.modelView translateEntity:-1.25f :0.025f :-1.25f :@"ball_4"];
+    [self.modelView translateEntity:0.0f :0.025f :-4.75f :@"ball_5"];
+    [self.modelView translateEntity:-0.60f :0.025f :-4.0f :@"ball_6"];
 }
 
 - (void)appWillResignActive:(NSNotification*)notification {
@@ -121,7 +162,17 @@ const float kToastDelayDuration = 2.0f;
     NSString* path = [[NSBundle mainBundle] pathForResource:@"stadium" ofType:@"gltf" inDirectory:@"BusterDrone"];
     NSData* buffer = [NSData dataWithContentsOfFile:path];
     [self.modelView loadModelGlb:buffer];
-    [self.modelView transformToUnitCube];
+    [self.modelView transformToRoot];
+    
+    [self.modelView showEntity:@"pitch"];
+    [self.modelView hideEntity:@"pitch_overlay"];
+    
+    [self.modelView hideEntity:@"ball_1"];
+    [self.modelView hideEntity:@"ball_2"];
+    [self.modelView hideEntity:@"ball_3"];
+    [self.modelView hideEntity:@"ball_4"];
+    [self.modelView hideEntity:@"ball_5"];
+    [self.modelView hideEntity:@"ball_6"];
 }
 
 - (void)createLights {

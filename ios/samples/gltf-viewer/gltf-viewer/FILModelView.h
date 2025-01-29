@@ -95,9 +95,29 @@ typedef void (^PickCallback)(utils::Entity);
 - (void)transformToUnitCube;
 
 /**
+ * Sets up a root transform on the current model to make it fit to a scale of 1.0
+ */
+- (void)transformToRoot;
+
+/**
  * Renders the model and updates the Filament camera.
  */
 - (void)render;
+
+/**
+ * Unhides an Entity if it was hidden in the filament::gltfio::FilamentAsset
+ */
+- (void)showEntity:(NSString*)entityName;
+
+/**
+ * Hides an Entity if it was visible in the filament::gltfio::FilamentAsset
+ */
+- (void)hideEntity:(NSString*)entityName;
+
+/**
+ * Translates an Entity by specified x, y & z units
+ */
+- (void)translateEntity:(float)x :(float)y :(float)z :(NSString*)entityName;
 
 @end
 

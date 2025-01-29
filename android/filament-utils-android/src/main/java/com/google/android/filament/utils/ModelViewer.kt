@@ -20,11 +20,33 @@ import android.view.MotionEvent
 import android.view.Surface
 import android.view.SurfaceView
 import android.view.TextureView
-import com.google.android.filament.*
+import com.google.android.filament.Camera
+import com.google.android.filament.Colors
+import com.google.android.filament.Engine
+import com.google.android.filament.Entity
+import com.google.android.filament.EntityManager
+import com.google.android.filament.Fence
+import com.google.android.filament.IndirectLight
+import com.google.android.filament.LightManager
+import com.google.android.filament.Renderer
+import com.google.android.filament.Scene
+import com.google.android.filament.Skybox
+import com.google.android.filament.SwapChain
+import com.google.android.filament.View
+import com.google.android.filament.Viewport
 import com.google.android.filament.android.DisplayHelper
 import com.google.android.filament.android.UiHelper
-import com.google.android.filament.gltfio.*
-import kotlinx.coroutines.*
+import com.google.android.filament.gltfio.Animator
+import com.google.android.filament.gltfio.AssetLoader
+import com.google.android.filament.gltfio.FilamentAsset
+import com.google.android.filament.gltfio.MaterialProvider
+import com.google.android.filament.gltfio.ResourceLoader
+import com.google.android.filament.gltfio.UbershaderProvider
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.nio.Buffer
 
 private const val kNearPlane = 0.05f     // 5 cm
@@ -32,6 +54,7 @@ private const val kFarPlane = 1000.0f    // 1 km
 private const val kAperture = 24f // higher number increases depth of field and image looks more darker
 private const val kShutterSpeed = 1f / 125f
 private const val kSensitivity = 100f
+private const val kFocalLength = 28f
 const val kOrbitSpeed = 0.001f
 const val kZoomSpeed = 0.1f
 const val kEyeYMovementPerPixel = kOrbitSpeed * 20 // 20 is derived from changing kOrbitSpeed and verifying the relative Eye y movement
@@ -77,7 +100,7 @@ class ModelViewer(
 
     var normalizeSkinningWeights = true
 
-    var cameraFocalLength = 28f
+    var cameraFocalLength = kFocalLength
         set(value) {
             field = value
             updateCameraProjection()
@@ -213,7 +236,9 @@ class ModelViewer(
     fun clearRootTransform() {
         asset?.let {
             val tm = engine.transformManager
-            tm.setTransform(tm.getInstance(it.root), Mat4().toFloatArray())
+            // Use Identity matrix as transform
+            val transform = Mat4()
+            tm.setTransform(tm.getInstance(it.root), transform.toFloatArray())
         }
     }
 

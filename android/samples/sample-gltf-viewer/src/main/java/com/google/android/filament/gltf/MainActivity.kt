@@ -140,6 +140,7 @@ class MainActivity : Activity() {
         }
 
         btnToggleBallDots.setOnClickListener {
+            modelViewer.showEntity("bowling_accuracy_target")
             modelViewer.showEntity("ball_1")
             modelViewer.showEntity("ball_2")
             modelViewer.showEntity("ball_3")
@@ -187,6 +188,7 @@ class MainActivity : Activity() {
 
         modelViewer.showEntity("pitch")
         modelViewer.hideEntity("pitch_overlay")
+        modelViewer.hideEntity("bowling_accuracy_target")
 
         // hide all the ball dots
         modelViewer.hideEntity("ball_1")

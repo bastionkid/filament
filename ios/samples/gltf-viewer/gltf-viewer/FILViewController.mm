@@ -109,6 +109,7 @@ const float kToastDelayDuration = 2.0f;
     
     [self.modelView showEntity:@"pitch_overlay"];
     [self.modelView hideEntity:@"pitch"];
+    [self.modelView showEntity:@"bowling_accuracy_target"];
     
     [self.modelView showEntity:@"ball_1"];
     [self.modelView showEntity:@"ball_2"];
@@ -166,6 +167,7 @@ const float kToastDelayDuration = 2.0f;
     
     [self.modelView showEntity:@"pitch"];
     [self.modelView hideEntity:@"pitch_overlay"];
+    [self.modelView hideEntity:@"bowling_accuracy_target"];
     
     [self.modelView hideEntity:@"ball_1"];
     [self.modelView hideEntity:@"ball_2"];

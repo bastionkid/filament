@@ -36,15 +36,12 @@ using namespace filament;
 using namespace utils;
 using namespace ktxreader;
 
-const float kToastAnimationDuration = 0.25f;
-const float kToastDelayDuration = 2.0f;
-
 @interface FILViewController ()
 
 - (void)startDisplayLink;
 - (void)stopDisplayLink;
 
-- (void)createRenderables;
+- (void)createDefaultRenderables;
 - (void)createLights;
 
 - (void)appWillResignActive:(NSNotification*)notification;
@@ -100,7 +97,9 @@ const float kToastDelayDuration = 2.0f;
     self.modelView.view->setAntiAliasing(AntiAliasing::FXAA);
     
     // ambient occlusion is the cheapest effect that adds a lot of quality
-    self.modelView.view->setAmbientOcclusion(View::AmbientOcclusion::SSAO);
+//    AmbientOcclusionOptions ambientOcclusionOptions = AmbientOcclusionOptions();
+//    ambientOcclusionOptions.enabled = true;
+//    self.modelView.view->setAmbientOcclusionOptions(ambientOcclusionOptions);
     
     [self createDefaultRenderables];
     

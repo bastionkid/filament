@@ -19,7 +19,6 @@ package com.google.android.filament.utils
 import android.view.MotionEvent
 import android.view.View
 import androidx.annotation.FloatRange
-import java.util.*
 import kotlin.math.max
 import kotlin.math.min
 
@@ -82,9 +81,7 @@ class GestureDetector(private val view: View, private val manipulator: Manipulat
                 // UPDATE EXISTING GESTURE
 
                 if (currentGesture == Gesture.ZOOM) {
-                    val d0 = previousTouch.separation
-                    val d1 = touch.separation
-                    val scrollDelta = (d0 - d1) * kZoomSpeed
+                    val scrollDelta = (previousTouch.separation - touch.separation) * kZoomSpeed
 
                     if (scrollDelta < 0) {
                         // ensure that the currentZoomDelta is clamped to kZoomRange.from in case of zoom in
@@ -111,14 +108,14 @@ class GestureDetector(private val view: View, private val manipulator: Manipulat
 
                 if (currentGesture != Gesture.NONE) {
                     if (currentGesture == Gesture.ORBIT) {
-                        // Get the eye position
-                        val eyePosition = DoubleArray(3)
-                        manipulator.getLookAt(eyePosition, DoubleArray(3), DoubleArray(3))
-
                         // Check if the orbit rotation is going up, because then only we want to
                         // enforce Eye position y co-ordinate minimum threshold
                         if (touch.y > previousTouch.y) {
-                            // Calculate maximum y axis movement allowed before if reaches threshold
+                            // Get the eye position
+                            val eyePosition = DoubleArray(3)
+                            manipulator.getLookAt(eyePosition, DoubleArray(3), DoubleArray(3))
+
+                            // Calculate maximum y axis movement allowed before it reaches threshold
                             val maxAllowedYDelta = eyePosition[1] - kEyeYMinThreshold
                             val maxYPixelMovementAllowed = (maxAllowedYDelta / kEyeYMovementPerPixel) + previousTouch.y
 

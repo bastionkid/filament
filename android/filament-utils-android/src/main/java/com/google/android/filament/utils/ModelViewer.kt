@@ -57,7 +57,7 @@ private const val kSensitivity = 100f
 private const val kFocalLength = 28f
 const val kOrbitSpeed = 0.001f
 const val kZoomSpeed = 0.1f
-const val kEyeYMovementPerPixel = kOrbitSpeed * 20 // 20 is derived from changing kOrbitSpeed and verifying the relative Eye y movement
+const val kEyeYMovementPerPixel = kOrbitSpeed * 20 // 20 is derived from changing kOrbitSpeed and verifying the relative Eye y movement manually
 const val kEyeYMinThreshold = 1.5
 
 /**

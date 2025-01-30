@@ -60,12 +60,14 @@ const float kSensitivity = 100.0f;
 const float kFocalLength = 28.0f;
 const float kOrbitSpeed = 0.001f;
 const float kZoomSpeed = 0.1f;
-const float kEyeYMovementPerPixel = kOrbitSpeed * 20.0f; // 20 is derived from changing kOrbitSpeed and verifying the relative Eye y movement
+const float kEyeYMovementPerPixel = kOrbitSpeed * 18.0f; // 18 is derived from changing kOrbitSpeed and verifying the relative Eye y movement manually
 const float kEyeYMinThreshold = 1.5f;
+const float kZoomScaleMin = 0.25f;
+const float kZoomScaleMax = 1.5f;
 
 // Cricket Pitch width is 2.64m & batsman wicket to bowler wickets length is 20.12m
 const float kDefaultEyePositionX = 0.0f;
-const float kDefaultEyePositionY = 1.55f;
+const float kDefaultEyePositionY = 1.65f;
 const float kDefaultEyePositionZ = 14.0f;
 const float kDefaultTargetPositionX = 0.0f;
 const float kDefaultTargetPositionY = 0.0f;
@@ -101,6 +103,8 @@ const float kDefaultTargetPositionZ = -4.0f;
     UIPanGestureRecognizer* _panRecognizer;
     UIPinchGestureRecognizer* _pinchRecognizer;
     CGFloat _previousScale;
+    CGFloat _currentZoomScale;
+    CGFloat _lastYPosition;
 }
 
 - (instancetype)initWithFrame:(CGRect)frame {
@@ -119,13 +123,8 @@ const float kDefaultTargetPositionZ = -4.0f;
 
 - (void)initCommon {
     self.contentScaleFactor = UIScreen.mainScreen.nativeScale;
-#if FILAMENT_APP_USE_OPENGL
-    [self initializeGLLayer];
-    _engine = Engine::create(Engine::Backend::OPENGL);
-#elif FILAMENT_APP_USE_METAL
     [self initializeMetalLayer];
     _engine = Engine::create(Engine::Backend::METAL);
-#endif
 
     _renderer = _engine->createRenderer();
     _scene = _engine->createScene();
@@ -162,12 +161,14 @@ const float kDefaultTargetPositionZ = -4.0f;
     // Set up pan and pinch gesture recognizers, used to orbit, zoom, and translate the camera.
     _panRecognizer = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(didPan:)];
     _panRecognizer.minimumNumberOfTouches = 1;
-    _panRecognizer.maximumNumberOfTouches = 2;
+    // Disable PAN gesture by setting the maximumNumberOfTouches to 1 instead of 2
+    _panRecognizer.maximumNumberOfTouches = 1;
     _pinchRecognizer = [[UIPinchGestureRecognizer alloc] initWithTarget:self action:@selector(didPinch:)];
 
     [self addGestureRecognizer:_panRecognizer];
     [self addGestureRecognizer:_pinchRecognizer];
     _previousScale = 1.0f;
+    _currentZoomScale = 1.0f;
 
     _asset = nullptr;
 }
@@ -365,16 +366,9 @@ const float kDefaultTargetPositionZ = -4.0f;
 #pragma mark Private
 
 - (void)initializeMetalLayer {
-#if METAL_AVAILABLE
     CAMetalLayer* metalLayer = (CAMetalLayer*)self.layer;
     metalLayer.pixelFormat = MTLPixelFormatBGRA8Unorm;
     metalLayer.opaque = YES;
-#endif
-}
-
-- (void)initializeGLLayer {
-    CAEAGLLayer* glLayer = (CAEAGLLayer*)self.layer;
-    glLayer.opaque = YES;
 }
 
 - (void)updateViewportAndCameraProjection {
@@ -388,10 +382,8 @@ const float kDefaultTargetPositionZ = -4.0f;
     const uint32_t height = self.bounds.size.height * self.contentScaleFactor;
     _view->setViewport({0, 0, width, height});
 
-#if FILAMENT_APP_USE_METAL
     CAMetalLayer* metalLayer = (CAMetalLayer*)self.layer;
     metalLayer.drawableSize = CGSizeMake(width, height);
-#endif
 
     const double aspect = (double)width / height;
     _camera->setLensProjection(self.cameraFocalLength, aspect, kNearPlane, kFarPlane);
@@ -403,10 +395,32 @@ const float kDefaultTargetPositionZ = -4.0f;
     if (sender.state == UIGestureRecognizerStateBegan) {
         const bool strafe = _panRecognizer.numberOfTouches == 2;
         _manipulator->grabBegin(location.x, location.y, strafe);
+        _lastYPosition = location.y;
     } else if (sender.state == UIGestureRecognizerStateChanged) {
-        _manipulator->grabUpdate(location.x, location.y);
-    } else if (sender.state == UIGestureRecognizerStateEnded ||
-            sender.state == UIGestureRecognizerStateFailed) {
+        // Check if the orbit rotation is going up, because then only we want to
+        // enforce Eye position y co-ordinate minimum threshold
+        if (location.y > _lastYPosition) {
+            // Get the eye position
+            math::float3 eye, target, upward;
+            _manipulator->getLookAt(&eye, &target, &upward);
+            
+            // Calculate maximum y axis movement allowed before it reaches threshold
+            CGFloat maxAllowedYDelta = eye.y - kEyeYMinThreshold;
+            CGFloat maxYPixelMovementAllowed = (maxAllowedYDelta / kEyeYMovementPerPixel) + _lastYPosition;
+            
+            // If the current touch will cause y movement beyond the threshold, then end gesture
+            if (location.y < maxYPixelMovementAllowed) {
+                _manipulator->grabUpdate(location.x, location.y);
+                _lastYPosition = location.y;
+            } else {
+                _manipulator->grabEnd();
+                _lastYPosition = location.y;
+            }
+        } else {
+            _manipulator->grabUpdate(location.x, location.y);
+            _lastYPosition = location.y;
+        }
+    } else if (sender.state == UIGestureRecognizerStateEnded || sender.state == UIGestureRecognizerStateFailed) {
         _manipulator->grabEnd();
     }
 }
@@ -415,11 +429,29 @@ const float kDefaultTargetPositionZ = -4.0f;
     CGPoint location = [sender locationInView:self];
     location.y = self.bounds.size.height - location.y;
     if (sender.state == UIGestureRecognizerStateBegan) {
+        _previousScale = 1.0f;
+        CGFloat deltaScale = _pinchRecognizer.scale - _previousScale;
+        _currentZoomScale = _currentZoomScale - deltaScale;
         _previousScale = _pinchRecognizer.scale;
     } else if (sender.state == UIGestureRecognizerStateChanged) {
         CGFloat deltaScale = _pinchRecognizer.scale - _previousScale;
-        _manipulator->scroll(location.x, location.y, -deltaScale * kScaleMultiplier);
-        _previousScale = _pinchRecognizer.scale;
+        _currentZoomScale = _currentZoomScale - deltaScale;
+        
+        // Ensure that the _currentZoomScale is clamped to kZoomScaleMin in case of zoom in and
+        // to kZoomScaleMax in case of zoom out
+        if (_currentZoomScale < kZoomScaleMin) {
+            _currentZoomScale = kZoomScaleMin;
+        } else if (_currentZoomScale > kZoomScaleMax) {
+            _currentZoomScale = kZoomScaleMax;
+        }
+        
+        // Here we limit the zoom in & out range via comparing _currentZoomScale with kZoomScaleMin and kZoomScaleMax
+        if (_currentZoomScale == kZoomScaleMin || _currentZoomScale == kZoomScaleMax) {
+            _manipulator->grabEnd();
+        } else {
+            _manipulator->scroll(location.x, location.y, -deltaScale * kScaleMultiplier);
+            _previousScale = _pinchRecognizer.scale;
+        }
     }
 }
 

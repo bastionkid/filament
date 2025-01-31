@@ -61,7 +61,7 @@ class GestureDetector(private val view: View, private val manipulator: Manipulat
     private val kGestureConfidenceCount = 2
     private val kPanConfidenceDistance = 4 // Distance in terms of screen pixel locations
     private val kZoomConfidenceDistance = 10 // Distance in terms of screen pixel locations
-    private val kZoomRange = FloatRange(from = -5.0 / kZoomSpeed, to = 5.0 / kZoomSpeed) // 5.0 is derived from changing kZoomSpeed and verifying the relative zoom in/out movement
+    private val kZoomRange = FloatRange(from = -12.0 / kZoomSpeed, to = 7.0 / kZoomSpeed) // 5.0 is derived from changing kZoomSpeed and verifying the relative zoom in/out movement
     private var currentZoomDelta = 0.0
 
     fun onTouchEvent(event: MotionEvent) {

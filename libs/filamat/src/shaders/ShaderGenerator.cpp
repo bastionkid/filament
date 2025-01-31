@@ -60,8 +60,9 @@ void ShaderGenerator::generateSurfaceMaterialVariantDefines(utils::io::sstream& 
             litVariants && filament::Variant::isShadowReceiverVariant(variant));
     CodeGenerator::generateDefine(out, "VARIANT_HAS_VSM",
             filament::Variant::isVSMVariant(variant));
-    CodeGenerator::generateDefine(out, "VARIANT_HAS_STEREO",
-            hasStereo(variant, featureLevel));
+    // TODO: Early hack to prevent Tint issues
+/*    CodeGenerator::generateDefine(out, "VARIANT_HAS_STEREO",
+            hasStereo(variant, featureLevel));*/
 
     switch (stage) {
         case ShaderStage::VERTEX:
@@ -824,6 +825,8 @@ std::string ShaderGenerator::createPostProcessFragmentProgram(ShaderModel sm,
 
 bool ShaderGenerator::hasSkinningOrMorphing(
         filament::Variant variant, MaterialBuilder::FeatureLevel featureLevel) noexcept {
+    // TODO: Early hack to prevent Tint issues
+    return false;
     return variant.hasSkinningOrMorphing()
             // HACK(exv): Ignore skinning/morphing variant when targeting ESSL 1.0. We should
             // either properly support skinning on FL0 or build a system in matc which allows

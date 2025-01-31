@@ -41,6 +41,10 @@ import com.google.android.filament.VertexBuffer
 import com.google.android.filament.VertexBuffer.AttributeType
 import com.google.android.filament.VertexBuffer.VertexAttribute
 import com.google.android.filament.View
+import com.google.android.filament.gltf.BufferUtils.FLOAT_SIZE
+import com.google.android.filament.gltf.BufferUtils.UV_SIZE
+import com.google.android.filament.gltf.BufferUtils.VERTEX_POSITION_SIZE
+import com.google.android.filament.gltf.BufferUtils.VERTEX_POSITION_WITH_COLOR_SIZE
 import com.google.android.filament.utils.KTX1Loader
 import com.google.android.filament.utils.ModelViewer
 import com.google.android.filament.utils.Utils
@@ -50,8 +54,6 @@ import java.nio.Buffer
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.FloatBuffer
-import java.nio.ShortBuffer
-import kotlin.math.sqrt
 
 class MainActivity : FragmentActivity() {
 
@@ -91,12 +93,6 @@ class MainActivity : FragmentActivity() {
 
     private var pitchOverlayVisible = false
 
-    private val intSize = 4
-    private val floatSize = 4
-    private val shortSize = 2
-    private val vertexSize = 3 * floatSize
-    private val uvSize = 2 * floatSize
-
     // Ball diameter = 0.050f
     private val ballTrajectoryVertexOffset = 0.050f / 2
 
@@ -113,23 +109,7 @@ class MainActivity : FragmentActivity() {
             .flip()
     }
 
-    private val ballTrajectoryIndexBuffer: IndexBuffer by lazy {
-        val indices = shortArrayOf(
-            0, 1, 2,
-            2, 1, 3,
-        )
-
-        val indexData = ShortBuffer.allocate(indices.size)
-            .put(indices)
-            .flip()
-
-        IndexBuffer.Builder()
-            .indexCount(indices.size)
-            .bufferType(IndexBuffer.Builder.IndexType.USHORT)
-            .build(modelViewer.engine).also {
-                it.setBuffer(modelViewer.engine, indexData)
-            }
-    }
+    private lateinit var ballTrajectoryIndexBuffer: IndexBuffer
 
     private val ballTrajectoryVertexBuffers = mutableListOf<VertexBuffer>()
     private val ballTrajectoryEntities = mutableListOf<Int>()
@@ -245,7 +225,6 @@ class MainActivity : FragmentActivity() {
 
 //        addTriangle()
 //        addLine()
-//        addQuadLine()
 //        addTransparentTexture()
 //        addBallTrajectory()
 
@@ -297,8 +276,61 @@ class MainActivity : FragmentActivity() {
     }
 
     private fun addTriangle() {
-        loadMaterial()
-        createMesh()
+        fun ByteBuffer.put(v: VertexWithColor): ByteBuffer {
+            putFloat(v.x)
+            putFloat(v.y)
+            putFloat(v.z)
+            putInt(v.color)
+            return this
+        }
+
+        // We are going to generate a single triangle
+        val vertices = listOf(
+            VertexWithColor( 1.0f, 2.0f, 0.0f, 0xffff0000.toInt()),
+            VertexWithColor(-1.0f, 3.0f, 0.0f, 0xff00ff00.toInt()),
+            VertexWithColor(-1.0f, 1.0f, 0.0f, 0xff0000ff.toInt()),
+        )
+
+        val vertexData = ByteBuffer.allocate(vertices.size * VERTEX_POSITION_WITH_COLOR_SIZE)
+            // It is important to respect the native byte order
+            .order(ByteOrder.nativeOrder())
+            .apply { vertices.forEach { put(it) } }
+            .flip()
+
+        // Declare the layout of our mesh
+        triangleVertexBuffer = VertexBuffer.Builder()
+            .bufferCount(1)
+            .vertexCount(vertices.size)
+            // Because we interleave position and color data (i.e. having both position and color
+            // data in same source) we must specify offset and stride.
+            // We could use de-interleaved data by declaring two buffers and giving each
+            // attribute a different buffer index
+            .attribute(VertexAttribute.POSITION, 0, AttributeType.FLOAT3, 0,              VERTEX_POSITION_WITH_COLOR_SIZE)
+            .attribute(VertexAttribute.COLOR,    0, AttributeType.UBYTE4, 3 * FLOAT_SIZE, VERTEX_POSITION_WITH_COLOR_SIZE)
+            // We store colors as unsigned bytes but since we want values between 0 and 1
+            // in the material (shaders), we must mark the attribute as normalized
+            .normalized(VertexAttribute.COLOR)
+            .build(modelViewer.engine)
+
+        // Feed the vertex data to the mesh
+        // We only set 1 buffer because the data is interleaved
+        triangleVertexBuffer.setBufferAt(modelViewer.engine, 0, vertexData)
+
+        // Create the indices
+        val indices = shortArrayOf(0, 1, 2)
+        triangleIndexBuffer = modelViewer.engine.createIndexBuffer(indices)
+
+        assets.readCompressedAsset("materials/baked_color.filamat").let {
+            triangleMaterial = Material.Builder().payload(it, it.remaining()).build(modelViewer.engine)
+            triangleMaterial.compile(
+                Material.CompilerPriorityQueue.HIGH,
+                Material.UserVariantFilterBit.ALL,
+                Handler(Looper.getMainLooper()),
+            ) {
+                Log.i(TAG, "Material " + triangleMaterial.name + " compiled.")
+            }
+            modelViewer.engine.flush()
+        }
 
         // To create a renderable we first create a generic entity
         triangleEntity = EntityManager.get().create()
@@ -319,84 +351,8 @@ class MainActivity : FragmentActivity() {
         modelViewer.scene.addEntity(triangleEntity)
     }
 
-    private fun loadMaterial() {
-        assets.readCompressedAsset("materials/baked_color.filamat").let {
-            triangleMaterial = Material.Builder().payload(it, it.remaining()).build(modelViewer.engine)
-            triangleMaterial.compile(
-                Material.CompilerPriorityQueue.HIGH,
-                Material.UserVariantFilterBit.ALL,
-                Handler(Looper.getMainLooper()),
-            ) {
-                Log.i("TAG", "Material " + triangleMaterial.name + " compiled.")
-            }
-            modelViewer.engine.flush()
-        }
-    }
-
-    private fun createMesh() {
-        // A vertex is a position + a color: 3 floats for XYZ position, 1 integer for color
-        val vertexSize = 3 * floatSize + intSize
-
-        // Define a vertex and a function to put a vertex in a ByteBuffer
-        data class Vertex(val x: Float, val y: Float, val z: Float, val color: Int)
-        fun ByteBuffer.put(v: Vertex): ByteBuffer {
-            putFloat(v.x)
-            putFloat(v.y)
-            putFloat(v.z)
-            putInt(v.color)
-            return this
-        }
-
-        // We are going to generate a single triangle
-        val vertexCount = 3
-
-        val vertexData = ByteBuffer.allocate(vertexCount * vertexSize)
-            // It is important to respect the native byte order
-            .order(ByteOrder.nativeOrder())
-            .put(Vertex( 1.0f, 2.0f, 0.0f, 0xffff0000.toInt()))
-            .put(Vertex(-1.0f, 3.0f, 0.0f, 0xff00ff00.toInt()))
-            .put(Vertex(-1.0f, 1.0f, 0.0f, 0xff0000ff.toInt()))
-            .flip()
-
-        // Declare the layout of our mesh
-        triangleVertexBuffer = VertexBuffer.Builder()
-            .bufferCount(1)
-            .vertexCount(vertexCount)
-            // Because we interleave position and color data (i.e. having both position and color
-            // data in same source) we must specify offset and stride.
-            // We could use de-interleaved data by declaring two buffers and giving each
-            // attribute a different buffer index
-            .attribute(VertexAttribute.POSITION, 0, AttributeType.FLOAT3, 0,             vertexSize)
-            .attribute(VertexAttribute.COLOR,    0, AttributeType.UBYTE4, 3 * floatSize, vertexSize)
-            // We store colors as unsigned bytes but since we want values between 0 and 1
-            // in the material (shaders), we must mark the attribute as normalized
-            .normalized(VertexAttribute.COLOR)
-            .build(modelViewer.engine)
-
-        // Feed the vertex data to the mesh
-        // We only set 1 buffer because the data is interleaved
-        triangleVertexBuffer.setBufferAt(modelViewer.engine, 0, vertexData)
-
-        // Create the indices
-        val indexData = ByteBuffer.allocate(vertexCount * shortSize)
-            .order(ByteOrder.nativeOrder())
-            .putShort(0)
-            .putShort(1)
-            .putShort(2)
-            .flip()
-
-        triangleIndexBuffer = IndexBuffer.Builder()
-            .indexCount(vertexCount)
-            .bufferType(IndexBuffer.Builder.IndexType.USHORT)
-            .build(modelViewer.engine)
-
-        triangleIndexBuffer.setBuffer(modelViewer.engine, indexData)
-    }
-
     private fun addLine() {
-        val vertexSize = 3 * floatSize
-
-        val points = floatArrayOf(
+        val vertices = floatArrayOf(
             -1f, 1f, 8f,     // Point 1
             -0.5f, 0.8f, 5f, // Point 2
             0.3f, 0.5f, 3f,  // Point 3
@@ -404,39 +360,27 @@ class MainActivity : FragmentActivity() {
             1f, 0.5f, 1f,    // Point 5
         )
 
-        val vertexCount = points.size / 3
-
-        val lineIndices = shortArrayOf(
-            0, 1,  // Connect vertex 0 to vertex 1
-            1, 2,  // Connect vertex 1 to vertex 2
-            2, 3,  // Connect vertex 2 to vertex 3
-            3, 4,  // Connect vertex 3 to vertex 4
-        )
+        val vertexCount = vertices.size / 3
 
         // Step 1: Create a Vertex Buffer
-        val vertexData = FloatBuffer.allocate(points.size)
-            .put(points)
-            .flip()
+        val vertexData = createBufferDataFromVertices(vertices)
 
         lineVertexBuffer = VertexBuffer.Builder()
             .bufferCount(1)
             .vertexCount(vertexCount)
-            .attribute(VertexAttribute.POSITION, 0, AttributeType.FLOAT3, 0, vertexSize)
+            .attribute(VertexAttribute.POSITION, 0, AttributeType.FLOAT3, 0, VERTEX_POSITION_SIZE)
             .build(modelViewer.engine)
 
         lineVertexBuffer.setBufferAt(modelViewer.engine, 0, vertexData)
 
         // Step 2: Create an Index Buffer
-        val indexData = ShortBuffer.allocate(lineIndices.size)
-            .put(lineIndices)
-            .flip()
-
-        lineIndexBuffer = IndexBuffer.Builder()
-            .indexCount(lineIndices.size)
-            .bufferType(IndexBuffer.Builder.IndexType.USHORT)
-            .build(modelViewer.engine)
-
-        lineIndexBuffer.setBuffer(modelViewer.engine, indexData)
+        val indices = shortArrayOf(
+            0, 1,  // Connect vertex 0 to vertex 1
+            1, 2,  // Connect vertex 1 to vertex 2
+            2, 3,  // Connect vertex 2 to vertex 3
+            3, 4,  // Connect vertex 3 to vertex 4
+        )
+        lineIndexBuffer = modelViewer.engine.createIndexBuffer(indices)
 
         // Step 3: Load the Material
         assets.readCompressedAsset("materials/line.filamat").let {
@@ -460,122 +404,7 @@ class MainActivity : FragmentActivity() {
         modelViewer.scene.addEntity(lineEntity)
     }
 
-    /**
-     * Create a quad line i.e. line between 2 points is made using a quad (i.e. 2 triangles).
-     * Here we generate 4 triangle vertices (required to draw 2 triangle where 2 vertices ate common between them)
-     * from 2 line vertices
-     */
-    private fun addQuadLine() {
-        val vertexSize = 3 * floatSize
-
-        val thickLinePoints = createThickLineGeometry(
-            points = floatArrayOf(
-                -1f, 1f, 8f,     // Point 1
-                -0.5f, 0.8f, 5f, // Point 2
-                0.3f, 0.5f, 3f,  // Point 3
-                0.5f, 0.5f, 2f,  // Point 4
-                1f, 0.5f, 1f,    // Point 5
-            ),
-            thickness = 0.1f,
-        )
-
-        val vertexCount = thickLinePoints.size / 3
-
-        val lineIndices = shortArrayOf(
-            0, 1, 2,
-            2, 1, 3,
-            4, 5, 6,
-            6, 5, 7,
-            8, 9, 10,
-            10, 9, 11,
-            12, 13, 14,
-            14, 13, 15,
-        )
-
-        // Step 1: Create a Vertex Buffer
-        val vertexData = FloatBuffer.allocate(thickLinePoints.size)
-            .put(thickLinePoints)
-            .flip()
-
-        lineVertexBuffer = VertexBuffer.Builder()
-            .bufferCount(1)
-            .vertexCount(vertexCount)
-            .attribute(VertexAttribute.POSITION, 0, AttributeType.FLOAT3, 0, vertexSize)
-            .build(modelViewer.engine)
-
-        lineVertexBuffer.setBufferAt(modelViewer.engine, 0, vertexData)
-
-        // Step 2: Create an Index Buffer
-        val indexData = ShortBuffer.allocate(lineIndices.size)
-            .put(lineIndices)
-            .flip()
-
-        lineIndexBuffer = IndexBuffer.Builder()
-            .indexCount(lineIndices.size)
-            .bufferType(IndexBuffer.Builder.IndexType.USHORT)
-            .build(modelViewer.engine)
-
-        lineIndexBuffer.setBuffer(modelViewer.engine, indexData)
-
-        // Step 3: Load the Material
-        assets.readCompressedAsset("materials/line.filamat").let {
-            lineMaterial = Material.Builder().payload(it, it.remaining()).build(modelViewer.engine)
-            modelViewer.engine.flush()
-        }
-
-        val materialInstance = lineMaterial.createInstance()
-        materialInstance.setParameter("baseColor", Colors.RgbaType.SRGB, 0f, 0f, 0f, 1.0f) // Black color
-
-        // Step 4: Create a Renderable
-        lineEntity = EntityManager.get().create()
-
-        RenderableManager.Builder(1)
-            .boundingBox(Box(0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 0.01f))
-            .geometry(0, PrimitiveType.TRIANGLES, lineVertexBuffer, lineIndexBuffer)
-            .material(0, materialInstance)
-            .build(modelViewer.engine, lineEntity)
-
-        // Step 5: Add the Line to the Scene
-        modelViewer.scene.addEntity(lineEntity)
-    }
-
-    private fun createThickLineGeometry(points: FloatArray, thickness: Float): FloatArray {
-        val vertices = mutableListOf<Float>()
-
-        for (i in 0 .. points.size - 6 step 3) {
-            val x1 = points[i]
-            val y1 = points[i + 1]
-            val z1 = points[i + 2]
-            val x2 = points[i + 3]
-            val y2 = points[i + 4]
-            val z2 = points[i + 5]
-
-            // Compute direction vector
-            val dx = x2 - x1
-            val dy = y2 - y1
-            val length = sqrt((dx * dx + dy * dy).toDouble()).toFloat()
-
-            // Normalize and compute perpendicular vector
-            val nx = -dy / length * thickness / 2
-            val ny = dx / length * thickness / 2
-
-            // Add quad vertices
-            vertices.addAll(
-                listOf(
-                    x1 + nx, y1 + ny, z1, // Top-left
-                    x1 - nx, y1 - ny, z1, // Bottom-left
-                    x2 + nx, y2 + ny, z2, // Top-right
-                    x2 - nx, y2 - ny, z2  // Bottom-right
-                )
-            )
-        }
-
-        return vertices.toFloatArray()
-    }
-
     private fun addTransparentTexture() {
-        val vertexSize = 3 * floatSize
-
         // Define vertex points. Ensure that the width to height ratio matched that os the asset.
         // Better way to identify the aspect ratio is via first loading the asset into bitmap and
         // then get width & height
@@ -610,8 +439,8 @@ class MainActivity : FragmentActivity() {
         triangleVertexBuffer = VertexBuffer.Builder()
             .bufferCount(2)
             .vertexCount(vertexCount)
-            .attribute(VertexAttribute.POSITION, 0, AttributeType.FLOAT3, 0, vertexSize)
-            .attribute(VertexAttribute.UV0, 1, AttributeType.FLOAT2, 0, uvSize)
+            .attribute(VertexAttribute.POSITION, 0, AttributeType.FLOAT3, 0, VERTEX_POSITION_SIZE)
+            .attribute(VertexAttribute.UV0, 1, AttributeType.FLOAT2, 0, UV_SIZE)
             .build(modelViewer.engine)
 
         triangleVertexBuffer.setBufferAt(modelViewer.engine, 0, vertexData)
@@ -622,18 +451,7 @@ class MainActivity : FragmentActivity() {
             0, 1, 2,
             2, 1, 3,
         )
-
-        // Create index data and set it to buffer
-        val indexData = ShortBuffer.allocate(indices.size)
-            .put(indices)
-            .flip()
-
-        triangleIndexBuffer = IndexBuffer.Builder()
-            .indexCount(indices.size)
-            .bufferType(IndexBuffer.Builder.IndexType.USHORT)
-            .build(modelViewer.engine)
-
-        triangleIndexBuffer.setBuffer(modelViewer.engine, indexData)
+        triangleIndexBuffer = modelViewer.engine.createIndexBuffer(indices)
 
         // Load material
         assets.readCompressedAsset("materials/transparent_image.filamat").also {
@@ -663,9 +481,9 @@ class MainActivity : FragmentActivity() {
         lifecycleScope.launch {
             delay(5_000) // 5 second delay
 
-            val xDelta = 0.00015f
-            val yDelta = 0.0005f
-            val zDelta = 0.005f
+            val xStepSize = 0.0003f
+            val yStepSize = 0.001f
+            val zStepSize = 0.01f
 
             // Ball start point
             var x = -0.5f
@@ -677,16 +495,16 @@ class MainActivity : FragmentActivity() {
             while (z > -10.0f) {
                 addTrajectory(x, y, z)
 
-                x += xDelta
+                x += xStepSize
 
                 if (y >= 0.0f && shouldDecrement) {
-                    y -= yDelta
+                    y -= yStepSize
                 } else {
                     shouldDecrement = false
-                    y += yDelta
+                    y += yStepSize
                 }
 
-                z -= zDelta
+                z -= zStepSize
             }
         }
     }
@@ -708,13 +526,19 @@ class MainActivity : FragmentActivity() {
         val vertexBuffer = VertexBuffer.Builder()
             .bufferCount(2)
             .vertexCount(vertexCount)
-            .attribute(VertexAttribute.POSITION, 0, AttributeType.FLOAT3, 0, vertexSize)
-            .attribute(VertexAttribute.UV0, 1, AttributeType.FLOAT2, 0, uvSize)
+            .attribute(VertexAttribute.POSITION, 0, AttributeType.FLOAT3, 0, VERTEX_POSITION_SIZE)
+            .attribute(VertexAttribute.UV0, 1, AttributeType.FLOAT2, 0, UV_SIZE)
             .build(modelViewer.engine)
 
         vertexBuffer.setBufferAt(modelViewer.engine, 0, vertexData)
         vertexBuffer.setBufferAt(modelViewer.engine, 1, ballTrajectoryUvData)
         ballTrajectoryVertexBuffers.add(vertexBuffer)
+
+        val indices = shortArrayOf(
+            0, 1, 2,
+            2, 1, 3,
+        )
+        ballTrajectoryIndexBuffer = modelViewer.engine.createIndexBuffer(indices)
 
         val entity = EntityManager.get().create()
         ballTrajectoryEntities.add(entity)
@@ -750,7 +574,7 @@ class MainActivity : FragmentActivity() {
             modelViewer.engine.destroyMaterial(triangleMaterial)
         }
 
-        // Cleanup cylinder resources
+        // Cleanup line resources
         if (::lineVertexBuffer.isInitialized) {
             modelViewer.engine.destroyEntity(lineEntity)
             modelViewer.engine.destroyVertexBuffer(lineVertexBuffer)
@@ -767,7 +591,7 @@ class MainActivity : FragmentActivity() {
         }
 
         // Cleanup ball trajectory resources
-        if (::transparentVertexBuffer.isInitialized) {
+        if (::ballTrajectoryIndexBuffer.isInitialized) {
             ballTrajectoryEntities.forEach { entity ->
                 modelViewer.engine.destroyEntity(entity)
             }

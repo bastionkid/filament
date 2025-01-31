@@ -96,13 +96,17 @@ buildscript {
         'buildTools': '35.0.0',
         'ndk': '27.0.11718014',
         'androidx_core': '1.13.1',
-        'androidx_annotations': '1.9.0'
+        'androidx_annotations': '1.9.0',
+        'androidx_fragment': '1.8.5',
+        'androidx_lifecycle': '2.8.7'
     ]
 
     ext.deps = [
         'androidx': [
             'annotations': "androidx.annotation:annotation:${versions.androidx_annotations}",
             'core': "androidx.core:core:${versions.androidx_core}",
+            'fragment': "androidx.fragment:fragment-ktx:${versions.androidx_fragment}",
+            'lifecycle': "androidx.lifecycle:lifecycle-runtime-ktx:${versions.androidx_lifecycle}",
         ],
         'kotlin': "org.jetbrains.kotlin:kotlin-stdlib-jdk8:${versions.kotlin}",
         'coroutines': [

@@ -17,7 +17,6 @@
 package com.google.android.filament.gltf
 
 import android.annotation.SuppressLint
-import android.app.Activity
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -26,12 +25,15 @@ import android.view.Choreographer
 import android.view.SurfaceView
 import android.view.WindowManager
 import android.widget.Button
+import androidx.fragment.app.FragmentActivity
+import androidx.lifecycle.lifecycleScope
 import com.google.android.filament.Box
 import com.google.android.filament.Colors
 import com.google.android.filament.Entity
 import com.google.android.filament.EntityManager
 import com.google.android.filament.IndexBuffer
 import com.google.android.filament.Material
+import com.google.android.filament.MaterialInstance
 import com.google.android.filament.RenderableManager
 import com.google.android.filament.RenderableManager.PrimitiveType
 import com.google.android.filament.TextureSampler
@@ -42,12 +44,16 @@ import com.google.android.filament.View
 import com.google.android.filament.utils.KTX1Loader
 import com.google.android.filament.utils.ModelViewer
 import com.google.android.filament.utils.Utils
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import java.nio.Buffer
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.FloatBuffer
 import java.nio.ShortBuffer
+import kotlin.math.sqrt
 
-class MainActivity : Activity() {
+class MainActivity : FragmentActivity() {
 
     companion object {
         // Load the library for the utility layer, which in turn loads gltfio and the Filament core.
@@ -90,6 +96,56 @@ class MainActivity : Activity() {
     private val shortSize = 2
     private val vertexSize = 3 * floatSize
     private val uvSize = 2 * floatSize
+
+    // Ball diameter = 0.050f
+    private val ballTrajectoryVertexOffset = 0.050f / 2
+
+    private val ballTrajectoryUvData: Buffer by lazy {
+        val uvPoints = floatArrayOf(
+            0.0f, 1.0f,  // Top-left
+            0.0f, 0.0f,  // Bottom-left
+            1.0f, 1.0f,  // Top-right
+            1.0f, 0.0f,  // Bottom-right
+        )
+
+        FloatBuffer.allocate(uvPoints.size)
+            .put(uvPoints)
+            .flip()
+    }
+
+    private val ballTrajectoryIndexBuffer: IndexBuffer by lazy {
+        val indices = shortArrayOf(
+            0, 1, 2,
+            2, 1, 3,
+        )
+
+        val indexData = ShortBuffer.allocate(indices.size)
+            .put(indices)
+            .flip()
+
+        IndexBuffer.Builder()
+            .indexCount(indices.size)
+            .bufferType(IndexBuffer.Builder.IndexType.USHORT)
+            .build(modelViewer.engine).also {
+                it.setBuffer(modelViewer.engine, indexData)
+            }
+    }
+
+    private val ballTrajectoryVertexBuffers = mutableListOf<VertexBuffer>()
+    private val ballTrajectoryEntities = mutableListOf<Int>()
+
+    private val ballTrajectoryMaterial: Material by lazy {
+        val byteBuffer = assets.readCompressedAsset("materials/ball_trajectory_circle.filamat")
+        Material.Builder()
+            .payload(byteBuffer, byteBuffer.remaining())
+            .build(modelViewer.engine)
+    }
+
+    private val ballTrajectoryMaterialInstance: MaterialInstance by lazy {
+        ballTrajectoryMaterial.createInstance().apply {
+            setParameter("texture", modelViewer.engine.buildTextureFromImageResource(R.drawable.ball_trajectory_circle, resources), TextureSampler())
+        }
+    }
 
     @SuppressLint("ClickableViewAccessibility")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -191,6 +247,7 @@ class MainActivity : Activity() {
 //        addLine()
 //        addQuadLine()
 //        addTransparentTexture()
+//        addBallTrajectory()
 
         modelViewer.showEntity("pitch")
         modelViewer.hideEntity("pitch_overlay")
@@ -496,7 +553,7 @@ class MainActivity : Activity() {
             // Compute direction vector
             val dx = x2 - x1
             val dy = y2 - y1
-            val length = kotlin.math.sqrt((dx * dx + dy * dy).toDouble()).toFloat()
+            val length = sqrt((dx * dx + dy * dy).toDouble()).toFloat()
 
             // Normalize and compute perpendicular vector
             val nx = -dy / length * thickness / 2
@@ -602,6 +659,75 @@ class MainActivity : Activity() {
         modelViewer.scene.addEntity(transparentEntity)
     }
 
+    private fun addBallTrajectory() {
+        lifecycleScope.launch {
+            delay(5_000) // 5 second delay
+
+            val xDelta = 0.00015f
+            val yDelta = 0.0005f
+            val zDelta = 0.005f
+
+            // Ball start point
+            var x = -0.5f
+            var y = 1.5f
+            var z = 10.0f
+
+            var shouldDecrement = true
+
+            while (z > -10.0f) {
+                addTrajectory(x, y, z)
+
+                x += xDelta
+
+                if (y >= 0.0f && shouldDecrement) {
+                    y -= yDelta
+                } else {
+                    shouldDecrement = false
+                    y += yDelta
+                }
+
+                z -= zDelta
+            }
+        }
+    }
+
+    private fun addTrajectory(x: Float, y: Float, z: Float) {
+        val vertexPoints = floatArrayOf(
+            x - ballTrajectoryVertexOffset, y + ballTrajectoryVertexOffset, z,  // Top-left
+            x - ballTrajectoryVertexOffset, y - ballTrajectoryVertexOffset, z,  // Bottom-left
+            x + ballTrajectoryVertexOffset, y + ballTrajectoryVertexOffset, z,  // Top-right
+            x + ballTrajectoryVertexOffset, y - ballTrajectoryVertexOffset, z,  // Bottom-right
+        )
+
+        val vertexCount = vertexPoints.size / 3
+
+        val vertexData = FloatBuffer.allocate(vertexPoints.size)
+            .put(vertexPoints)
+            .flip()
+
+        val vertexBuffer = VertexBuffer.Builder()
+            .bufferCount(2)
+            .vertexCount(vertexCount)
+            .attribute(VertexAttribute.POSITION, 0, AttributeType.FLOAT3, 0, vertexSize)
+            .attribute(VertexAttribute.UV0, 1, AttributeType.FLOAT2, 0, uvSize)
+            .build(modelViewer.engine)
+
+        vertexBuffer.setBufferAt(modelViewer.engine, 0, vertexData)
+        vertexBuffer.setBufferAt(modelViewer.engine, 1, ballTrajectoryUvData)
+        ballTrajectoryVertexBuffers.add(vertexBuffer)
+
+        val entity = EntityManager.get().create()
+        ballTrajectoryEntities.add(entity)
+
+        RenderableManager.Builder(1)
+            .boundingBox(Box(0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 0.01f))
+            .geometry(0, PrimitiveType.TRIANGLES, vertexBuffer, ballTrajectoryIndexBuffer, 0, ballTrajectoryIndexBuffer.indexCount)
+            .material(0, ballTrajectoryMaterialInstance)
+            .build(modelViewer.engine, entity)
+
+        modelViewer.scene.addEntity(entity)
+    }
+
     override fun onResume() {
         super.onResume()
         choreographer.postFrameCallback(frameScheduler)
@@ -624,7 +750,7 @@ class MainActivity : Activity() {
             modelViewer.engine.destroyMaterial(triangleMaterial)
         }
 
-        // Cleanup line resources
+        // Cleanup cylinder resources
         if (::lineVertexBuffer.isInitialized) {
             modelViewer.engine.destroyEntity(lineEntity)
             modelViewer.engine.destroyVertexBuffer(lineVertexBuffer)
@@ -638,6 +764,22 @@ class MainActivity : Activity() {
             modelViewer.engine.destroyVertexBuffer(transparentVertexBuffer)
             modelViewer.engine.destroyIndexBuffer(transparentIndexBuffer)
             modelViewer.engine.destroyMaterial(transparentMaterial)
+        }
+
+        // Cleanup ball trajectory resources
+        if (::transparentVertexBuffer.isInitialized) {
+            ballTrajectoryEntities.forEach { entity ->
+                modelViewer.engine.destroyEntity(entity)
+            }
+            ballTrajectoryEntities.clear()
+
+            ballTrajectoryVertexBuffers.forEach { vertexBuffer ->
+                modelViewer.engine.destroyVertexBuffer(vertexBuffer)
+            }
+            ballTrajectoryVertexBuffers.clear()
+
+            modelViewer.engine.destroyIndexBuffer(ballTrajectoryIndexBuffer)
+            modelViewer.engine.destroyMaterial(ballTrajectoryMaterial)
         }
     }
 

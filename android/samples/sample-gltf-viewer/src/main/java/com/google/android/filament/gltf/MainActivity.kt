@@ -85,6 +85,12 @@ class MainActivity : Activity() {
 
     private var pitchOverlayVisible = false
 
+    private val intSize = 4
+    private val floatSize = 4
+    private val shortSize = 2
+    private val vertexSize = 3 * floatSize
+    private val uvSize = 2 * floatSize
+
     @SuppressLint("ClickableViewAccessibility")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -271,10 +277,6 @@ class MainActivity : Activity() {
     }
 
     private fun createMesh() {
-        val intSize = 4
-        val floatSize = 4
-        val shortSize = 2
-
         // A vertex is a position + a color: 3 floats for XYZ position, 1 integer for color
         val vertexSize = 3 * floatSize + intSize
 
@@ -335,7 +337,6 @@ class MainActivity : Activity() {
     }
 
     private fun addLine() {
-        val floatSize = 4
         val vertexSize = 3 * floatSize
 
         val points = floatArrayOf(
@@ -408,7 +409,6 @@ class MainActivity : Activity() {
      * from 2 line vertices
      */
     private fun addQuadLine() {
-        val floatSize = 4
         val vertexSize = 3 * floatSize
 
         val thickLinePoints = createThickLineGeometry(
@@ -517,18 +517,16 @@ class MainActivity : Activity() {
     }
 
     private fun addTransparentTexture() {
-        val floatSize = 4
         val vertexSize = 3 * floatSize
-        val uvSize = 2 * floatSize
 
         // Define vertex points. Ensure that the width to height ratio matched that os the asset.
         // Better way to identify the aspect ratio is via first loading the asset into bitmap and
         // then get width & height
         val vertexPoints = floatArrayOf(
-            -1.0f, 0.683f, 0.0f, // Top-left
-            -1.0f, 0.0f, 0.0f, // Bottom-left
-            1.0f, 0.683f, 0.0f,  // Top-right
-            1.0f, 0.0f, 0.0f,  // Bottom-right
+            -1.0f, 0.683f, 0.0f,  // Top-left
+            -1.0f, 0.0f, 0.0f,    // Bottom-left
+            1.0f, 0.683f, 0.0f,   // Top-right
+            1.0f, 0.0f, 0.0f,     // Bottom-right
         )
 
         val vertexCount = vertexPoints.size / 3
@@ -542,10 +540,10 @@ class MainActivity : Activity() {
         // use 2d texture.
         // Note: Ensure that the uvPoints ordering matches vertexPoints ordering
         val uvPoints = floatArrayOf(
-            0.0f, 1.0f, // Top-left
-            0.0f, 0.0f, // Bottom-left
-            1.0f, 1.0f,  // Top-right
-            1.0f, 0.0f, // Bottom-right
+            0.0f, 1.0f,   // Top-left
+            0.0f, 0.0f,   // Bottom-left
+            1.0f, 1.0f,   // Top-right
+            1.0f, 0.0f,   // Bottom-right
         )
 
         val uvData = FloatBuffer.allocate(uvPoints.size)

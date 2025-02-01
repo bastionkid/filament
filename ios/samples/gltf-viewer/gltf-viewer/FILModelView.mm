@@ -63,7 +63,7 @@ const float kZoomSpeed = 0.1f;
 const float kEyeYMovementPerPixel = kOrbitSpeed * 18.0f; // 18 is derived from changing kOrbitSpeed and verifying the relative Eye y movement manually
 const float kEyeYMinThreshold = 1.5f;
 const float kZoomScaleMin = -0.2f;
-const float kZoomScaleMax = 1.5f;
+const float kZoomScaleMax = 1.4f;
 
 // Cricket Pitch width is 2.64m & batsman wicket to bowler wickets length is 20.12m
 const float kDefaultEyePositionX = 0.0f;

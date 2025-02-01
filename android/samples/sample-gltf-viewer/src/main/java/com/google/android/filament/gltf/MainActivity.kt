@@ -227,6 +227,27 @@ class MainActivity : FragmentActivity() {
 //        addLine()
 //        addTransparentTexture()
 //        addBallTrajectory()
+//        addQuad(
+//            Quad(
+//                topLeftVertex = Vertex(
+//                    x = -0.5f,
+//                    y = 2.00f,
+//                    z = 8.00f,
+//                ), bottomLeftVertex = Vertex(
+//                    x = -0.5f,
+//                    y = 1.00f,
+//                    z = 8.00f,
+//                ), topRightVertex = Vertex(
+//                    x = 0.5f,
+//                    y = 2.00f,
+//                    z = 2.00f,
+//                ), bottomRightVertex = Vertex(
+//                    x = 0.5f,
+//                    y = 1.00f,
+//                    z = 2.00f,
+//                )
+//            )
+//        )
 
         modelViewer.showEntity("pitch")
         modelViewer.hideEntity("pitch_overlay")
@@ -550,6 +571,45 @@ class MainActivity : FragmentActivity() {
             .build(modelViewer.engine, entity)
 
         modelViewer.scene.addEntity(entity)
+    }
+
+    private fun addQuad(quad: Quad) {
+        val vertexCount = 4 * 3 // Quad has 4 vertices each having 3 co-ordinates
+        val vertexData = createBufferDataFromQuad(quad)
+
+        val vertexBuffer = VertexBuffer.Builder()
+            .bufferCount(1)
+            .vertexCount(vertexCount)
+            .attribute(VertexAttribute.POSITION, 0, AttributeType.FLOAT3, 0, VERTEX_POSITION_SIZE)
+            .build(modelViewer.engine)
+
+        vertexBuffer.setBufferAt(modelViewer.engine, 0, vertexData)
+
+        val indices = shortArrayOf(
+            0, 1, 2,
+            2, 1, 3
+        )
+        val indexBuffer = modelViewer.engine.createIndexBuffer(indices)
+
+        // Step 3: Load the Material
+        val materialBuffer = assets.readCompressedAsset("materials/cylinder.filamat")
+        val quadMaterial = Material.Builder().payload(materialBuffer, materialBuffer.remaining()).build(modelViewer.engine)
+        modelViewer.engine.flush()
+
+        val materialInstance = quadMaterial.createInstance()
+        materialInstance.setParameter("baseColor", Colors.RgbaType.SRGB, 0f, 0f, 0f, 1.0f) // Black color
+
+        // Step 4: Create a Renderable
+        val quadEntity = EntityManager.get().create()
+
+        RenderableManager.Builder(1)
+            .boundingBox(Box(0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 0.01f))
+            .geometry(0, PrimitiveType.TRIANGLES, vertexBuffer, indexBuffer)
+            .material(0, materialInstance)
+            .build(modelViewer.engine, quadEntity)
+
+        // Step 5: Add the Line to the Scene
+        modelViewer.scene.addEntity(quadEntity)
     }
 
     override fun onResume() {

@@ -21,6 +21,46 @@ fun createBufferDataFromVertices(vertices: FloatArray): Buffer {
         .flip()
 }
 
+fun createBufferDataFromVertices(vertices: List<Vertex>): Buffer {
+    return FloatBuffer.allocate(vertices.size)
+        .apply {
+            vertices.forEach {
+                put(it.x)
+                put(it.y)
+                put(it.z)
+            }
+        }
+        .flip()
+}
+
+fun createBufferDataFromQuad(quad: Quad): Buffer {
+    val vertices = 4 * 3 // Quad has 4 vertex with 3 co-ordinates each
+
+    return FloatBuffer.allocate(vertices)
+        .apply {
+            // Top Left Vertex
+            put(quad.topLeftVertex.x)
+            put(quad.topLeftVertex.y)
+            put(quad.topLeftVertex.z)
+
+            // Bottom Left Vertex
+            put(quad.bottomLeftVertex.x)
+            put(quad.bottomLeftVertex.y)
+            put(quad.bottomLeftVertex.z)
+
+            // Top Right Vertex
+            put(quad.topRightVertex.x)
+            put(quad.topRightVertex.y)
+            put(quad.topRightVertex.z)
+
+            // Bottom Right Vertex
+            put(quad.bottomRightVertex.x)
+            put(quad.bottomRightVertex.y)
+            put(quad.bottomRightVertex.z)
+        }
+        .flip()
+}
+
 fun createBufferDataFromIndices(indices: ShortArray): Buffer {
     return ShortBuffer.allocate(indices.size)
         .put(indices)

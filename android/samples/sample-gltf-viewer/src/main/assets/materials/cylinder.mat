@@ -1,6 +1,7 @@
 material {
     name : CylinderMaterial,
     shadingModel : lit,
+    doubleSided : true,
     parameters : [
         {
             type : float4,

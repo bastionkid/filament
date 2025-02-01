@@ -631,43 +631,56 @@ class MainActivity : FragmentActivity() {
         val radius = 0.025f
         val numOfPoints = 20
 
-        val pointA = Vertex(-0.55f, 1.75f, 10f)
-        val pointB = Vertex(-0.20f, 0.0f, -4f)
+        val vertices = listOf(
+            Vertex(-0.55f, 1.75f, 10f), // Bowler Stump Point
+            Vertex(-0.20f, 0.0f, -4f),  // Pitch Contact Point
+            Vertex(0.0f, 0.5f, -10f),   // Batsman Stump Point
+        )
 
-        /**
-         * Here we want to smoothen the curve between pointA and pointB along z-y axis and the
-         * x axis points will be linearly interpolated
-         */
-        val xIncrement = (pointA.x - pointB.x) / numOfPoints
+        // Create window of two points and then smoothen the curve along those two points
+        vertices.windowed(size = 2).forEach { (pointA, pointB) ->
+            /**
+             * Here we want to smoothen the curve between pointA and pointB along z-y axis and the
+             * x axis points will be linearly interpolated. Here we get
+             */
+            val xIncrement = (pointA.x - pointB.x) / (numOfPoints - 1)
 
-        val quadraticBezierPoints = quadraticBezier(
-            p0 = Pair(pointA.z, pointA.y),
-            p1 = Pair((pointA.z + pointB.z) / 2, (pointA.y - pointB.y) * 0.75f),
-            p2 = Pair(pointB.z, pointB.y),
-            numOfPoints = numOfPoints,
-        ).mapIndexed { index, (z, y) ->
-            Vertex(
-                x = pointA.x - (xIncrement * index),
-                y = y,
-                z = z,
-            )
-        }
+            val controlPointZ = (pointA.z + pointB.z) / 2
+            val controlPointY = if (pointA.y > pointB.y) {
+                (pointA.y - pointB.y) * 0.75f
+            } else {
+                (pointB.y - pointA.y) * 0.75f
+            }
 
-        val verticesPoints = quadraticBezierPoints.map { vertex ->
-            CylinderUtils.getPointsAlongCircumference(
-                centerX = vertex.x,
-                centerY = vertex.y,
-                centerZ = vertex.z,
-                radius = radius,
+            val quadraticBezierPoints = quadraticBezier(
+                start = Pair(pointA.z, pointA.y),
+                control = Pair(controlPointZ, controlPointY),
+                end = Pair(pointB.z, pointB.y),
                 numOfPoints = numOfPoints,
-            )
-        }
+            ).mapIndexed { index, (z, y) ->
+                Vertex(
+                    x = pointA.x - (xIncrement * index),
+                    y = y,
+                    z = z,
+                )
+            }
 
-        verticesPoints.windowed(2).map { (pointAVertices, pointBVertices) ->
-            val quadVertices = CylinderUtils.getQuadVertices(pointAVertices, pointBVertices)
+            val verticesPoints = quadraticBezierPoints.map { vertex ->
+                CylinderUtils.getPointsAlongCircumference(
+                    centerX = vertex.x,
+                    centerY = vertex.y,
+                    centerZ = vertex.z,
+                    radius = radius,
+                    numOfPoints = numOfPoints,
+                )
+            }
 
-            quadVertices.forEach { quad ->
-                addQuad(quad)
+            verticesPoints.windowed(2).map { (pointAVertices, pointBVertices) ->
+                val quadVertices = CylinderUtils.getQuadVertices(pointAVertices, pointBVertices)
+
+                quadVertices.forEach { quad ->
+                    addQuad(quad)
+                }
             }
         }
     }

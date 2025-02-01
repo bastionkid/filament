@@ -26,7 +26,6 @@ import android.view.SurfaceView
 import android.view.WindowManager
 import android.widget.Button
 import androidx.fragment.app.FragmentActivity
-import androidx.lifecycle.lifecycleScope
 import com.google.android.filament.Box
 import com.google.android.filament.Colors
 import com.google.android.filament.Entity
@@ -48,8 +47,6 @@ import com.google.android.filament.gltf.BufferUtils.VERTEX_POSITION_WITH_COLOR_S
 import com.google.android.filament.utils.KTX1Loader
 import com.google.android.filament.utils.ModelViewer
 import com.google.android.filament.utils.Utils
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import java.nio.Buffer
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -533,34 +530,30 @@ class MainActivity : FragmentActivity() {
     }
 
     private fun addBallTrajectory() {
-        lifecycleScope.launch {
-            delay(5_000) // 5 second delay
+        val xStepSize = 0.0003f
+        val yStepSize = 0.001f
+        val zStepSize = 0.01f
 
-            val xStepSize = 0.0003f
-            val yStepSize = 0.001f
-            val zStepSize = 0.01f
+        // Ball start point
+        var x = -0.5f
+        var y = 1.5f
+        var z = 10.0f
 
-            // Ball start point
-            var x = -0.5f
-            var y = 1.5f
-            var z = 10.0f
+        var shouldDecrement = true
 
-            var shouldDecrement = true
+        while (z > -10.0f) {
+            addTrajectory(x, y, z)
 
-            while (z > -10.0f) {
-                addTrajectory(x, y, z)
+            x += xStepSize
 
-                x += xStepSize
-
-                if (y >= 0.0f && shouldDecrement) {
-                    y -= yStepSize
-                } else {
-                    shouldDecrement = false
-                    y += yStepSize
-                }
-
-                z -= zStepSize
+            if (y >= 0.0f && shouldDecrement) {
+                y -= yStepSize
+            } else {
+                shouldDecrement = false
+                y += yStepSize
             }
+
+            z -= zStepSize
         }
     }
 

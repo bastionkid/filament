@@ -622,7 +622,8 @@ class MainActivity : FragmentActivity() {
 
     private fun addCylinder() {
         val radius = 0.025f
-        val numOfPoints = 20
+        val interpolationPoints = 50
+        val circumferencePoints = 50
 
         val vertices = listOf(
             Vertex(-0.55f, 1.75f, 10f), // Bowler Stump Point
@@ -636,7 +637,7 @@ class MainActivity : FragmentActivity() {
              * Here we want to smoothen the curve between pointA and pointB along z-y axis and the
              * x axis points will be linearly interpolated. Here we get
              */
-            val xIncrement = (pointA.x - pointB.x) / (numOfPoints - 1)
+            val xIncrement = (pointA.x - pointB.x) / (interpolationPoints - 1)
 
             val controlPointZ = (pointA.z + pointB.z) / 2
             val controlPointY = if (pointA.y > pointB.y) {
@@ -649,7 +650,7 @@ class MainActivity : FragmentActivity() {
                 start = Pair(pointA.z, pointA.y),
                 control = Pair(controlPointZ, controlPointY),
                 end = Pair(pointB.z, pointB.y),
-                numOfPoints = numOfPoints,
+                numOfPoints = interpolationPoints,
             ).mapIndexed { index, (z, y) ->
                 Vertex(
                     x = pointA.x - (xIncrement * index),
@@ -664,7 +665,7 @@ class MainActivity : FragmentActivity() {
                     centerY = vertex.y,
                     centerZ = vertex.z,
                     radius = radius,
-                    numOfPoints = numOfPoints,
+                    numOfPoints = circumferencePoints,
                 )
             }
 

@@ -21,5 +21,10 @@
 @interface FILViewController : UIViewController
 
 @property(weak, nonatomic) IBOutlet FILModelView* modelView;
+@property (weak, nonatomic) IBOutlet UIButton *btnToggleOverlay;
+@property (weak, nonatomic) IBOutlet UIButton *btnToggleBallDots;
+
+- (IBAction)onToggleOverlayClick:(id)sender;
+- (IBAction)onToggleBallDotsClick:(id)sender;
 
 @end

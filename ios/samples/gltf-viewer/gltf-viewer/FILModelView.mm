@@ -425,7 +425,7 @@ const float kDefaultTargetPositionZ = 0.0f;
     return [CAMetalLayer class];
 }
 
-#pragma mark Render utils
+#pragma mark RenderUtils
 
 - (void)showEntity:(NSString*)entityName {
     Entity entity = _asset->getFirstEntityByName([entityName UTF8String]);
@@ -445,7 +445,7 @@ const float kDefaultTargetPositionZ = 0.0f;
     }
 }
 
-#pragma mark Transform utils
+#pragma mark TransformUtils
 
 - (void)translateEntity:(float)x :(float)y :(float)z :(NSString*)entityName {
     Entity entity = _asset->getFirstEntityByName([entityName UTF8String]);

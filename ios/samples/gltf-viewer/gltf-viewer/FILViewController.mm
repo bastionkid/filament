@@ -58,6 +58,7 @@ using namespace ktxreader;
     Texture* _iblTexture;
     IndirectLight* _indirectLight;
     Entity _sun;
+    Boolean pitchOverlayVisible;
 }
 
 #pragma mark UIViewController methods
@@ -105,24 +106,6 @@ using namespace ktxreader;
     
     // Creating light is mandatory
     [self createLights];
-    
-    [self.modelView showEntity:@"pitch_overlay"];
-    [self.modelView hideEntity:@"pitch"];
-    [self.modelView showEntity:@"bowling_accuracy_target"];
-    
-    [self.modelView showEntity:@"ball_1"];
-    [self.modelView showEntity:@"ball_2"];
-    [self.modelView showEntity:@"ball_3"];
-    [self.modelView showEntity:@"ball_4"];
-    [self.modelView showEntity:@"ball_5"];
-    [self.modelView showEntity:@"ball_6"];
-    
-    [self.modelView translateEntity:-1.0f :0.025f :-6.0f :@"ball_1"];
-    [self.modelView translateEntity:-0.25f :0.025f :-4.5f :@"ball_2"];
-    [self.modelView translateEntity:-0.50f :0.025f :-3.25f :@"ball_3"];
-    [self.modelView translateEntity:-1.25f :0.025f :-1.25f :@"ball_4"];
-    [self.modelView translateEntity:0.0f :0.025f :-4.75f :@"ball_5"];
-    [self.modelView translateEntity:-0.60f :0.025f :-4.0f :@"ball_6"];
 }
 
 - (void)appWillResignActive:(NSNotification*)notification {
@@ -164,6 +147,7 @@ using namespace ktxreader;
     [self.modelView loadModelGlb:buffer];
     [self.modelView transformToRoot];
     
+    pitchOverlayVisible = false;
     [self.modelView showEntity:@"pitch"];
     [self.modelView hideEntity:@"pitch_overlay"];
     [self.modelView hideEntity:@"bowling_accuracy_target"];
@@ -233,6 +217,47 @@ using namespace ktxreader;
     self.modelView.engine->destroy(_skyboxTexture);
     self.modelView.scene->remove(_sun);
     self.modelView.engine->destroy(_sun);
+}
+
+- (IBAction)onToggleOverlayClick:(id)sender {
+    if (pitchOverlayVisible) {
+        [self.modelView showEntity:@"pitch"];
+        [self.modelView hideEntity:@"pitch_overlay"];
+    } else {
+        [self.modelView showEntity:@"pitch_overlay"];
+        [self.modelView hideEntity:@"pitch"];
+    }
+
+    pitchOverlayVisible = !pitchOverlayVisible;
+}
+
+- (IBAction)onToggleBallDotsClick:(id)sender {
+    [self.modelView showEntity:@"bowling_accuracy_target"];
+    [self.modelView showEntity:@"ball_1"];
+    [self.modelView showEntity:@"ball_2"];
+    [self.modelView showEntity:@"ball_3"];
+    [self.modelView showEntity:@"ball_4"];
+    [self.modelView showEntity:@"ball_5"];
+    [self.modelView showEntity:@"ball_6"];
+
+    [self.modelView translateEntity:[self getBallX] :0.025f :[self getBallZ] :@"ball_1"];
+    [self.modelView translateEntity:[self getBallX] :0.025f :[self getBallZ] :@"ball_2"];
+    [self.modelView translateEntity:[self getBallX] :0.025f :[self getBallZ] :@"ball_3"];
+    [self.modelView translateEntity:[self getBallX] :0.025f :[self getBallZ] :@"ball_4"];
+    [self.modelView translateEntity:[self getBallX] :0.025f :[self getBallZ] :@"ball_5"];
+    [self.modelView translateEntity:[self getBallX] :0.025f :[self getBallZ] :@"ball_6"];
+}
+
+- (CGFloat)getBallX {
+    float low_bound = -1.0f;
+    float high_bound = 0.5f;
+    return (((float)arc4random()/0x100000000)*(high_bound-low_bound)+low_bound);
+}
+
+- (CGFloat)getBallZ {
+    float low_bound = -10.0f;
+    float high_bound = 0.0f;
+    return (((float)arc4random()/0x100000000)*(high_bound-low_bound)+low_bound);
 }
 
 @end

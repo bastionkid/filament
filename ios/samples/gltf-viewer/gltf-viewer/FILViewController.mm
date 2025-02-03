@@ -207,7 +207,7 @@ static constexpr uint16_t TRIANGLE_INDICES[3] = { 0, 1, 2 };
     [self.modelView hideEntity:@"ball_5"];
     [self.modelView hideEntity:@"ball_6"];
     
-    [self addTriangle];
+//    [self addTriangle];
     [self addCylinder];
 }
 
@@ -335,9 +335,9 @@ static constexpr uint16_t TRIANGLE_INDICES[3] = { 0, 1, 2 };
         const float controlPointZ = (pointA.z + pointB.z) / 2;
         float controlPointY;
         if (pointA.y > pointB.y) {
-            controlPointY = (pointA.y - (pointA.y - pointB.y) * 0.75f);
+            controlPointY = (pointA.y - pointB.y) * 0.75f;
         } else {
-            controlPointY = (pointB.y - (pointB.y - pointA.y) * 0.75f);
+            controlPointY = (pointB.y - pointA.y) * 0.75f;
         }
         
         // Generate quadratic Bezier points in Z-Y plane

@@ -49,10 +49,13 @@ static constexpr uint8_t CYLINDER_MATERIAL[] = {
 #include "cylinder.inc"
 };
 
-// This file is compiled via the matc tool. See the "Run Script" build phase.
-static constexpr uint8_t BAKED_COLOR_PACKAGE[] = {
-#include "bakedColor.inc"
+static constexpr float3 TRIANGLE_VERTICES[3] = {
+    {0, 2, 0},
+    {-1, 0, 0},
+    {1, 0, 0}
 };
+
+static constexpr uint16_t TRIANGLE_INDICES[3] = { 0, 1, 2 };
 
 @interface FILViewController ()
 
@@ -203,6 +206,7 @@ static constexpr uint8_t BAKED_COLOR_PACKAGE[] = {
     [self.modelView hideEntity:@"ball_5"];
     [self.modelView hideEntity:@"ball_6"];
     
+    [self addTriangle];
     [self addCylinder];
 }
 
@@ -405,6 +409,41 @@ static constexpr uint8_t BAKED_COLOR_PACKAGE[] = {
         .boundingBox({{ 0, 0, 0 }, { 1, 1, 0.01 }})
         .material(0, _materialInstance)
         .geometry(0, RenderableManager::PrimitiveType::TRIANGLES, vertexBuffer, _indexBuffer, 0, indexCount)
+        .build(*_modelView.engine, renderable);
+    
+    _modelView.scene->addEntity(renderable);
+}
+
+- (void)addTriangle {
+    int vertexCount = 3; // Triangle has 3 vertices each having 3 co-ordinates
+    int floatSize = 4;
+    int vertexSize = 3 * floatSize;
+    
+    int shortSize = 2;
+    int indexCount = 3; // Triangle is made up of 3 vertices
+    int indexSize = indexCount * shortSize;
+    
+    VertexBuffer* vertexBuffer = VertexBuffer::Builder()
+        .vertexCount(vertexCount)
+        .bufferCount(1)
+        .attribute(VertexAttribute::POSITION, 0, VertexBuffer::AttributeType::FLOAT3, 0, vertexSize)
+        .build(*_modelView.engine);
+    
+    vertexBuffer->setBufferAt(*_modelView.engine, 0, VertexBuffer::BufferDescriptor(TRIANGLE_VERTICES, vertexCount * vertexSize, nullptr));
+    
+    IndexBuffer* indexBuffer = IndexBuffer::Builder()
+        .indexCount(indexCount)
+        .bufferType(IndexBuffer::IndexType::USHORT)
+        .build(*_modelView.engine);
+    
+    indexBuffer->setBuffer(*_modelView.engine, IndexBuffer::BufferDescriptor(TRIANGLE_INDICES, indexSize, nullptr));
+    
+    Entity renderable = EntityManager::get().create();
+    
+    RenderableManager::Builder(1)
+        .boundingBox({{ 0, 0, 0 }, { 1, 1, 0.01 }})
+        .material(0, _materialInstance)
+        .geometry(0, RenderableManager::PrimitiveType::TRIANGLES, vertexBuffer, indexBuffer, 0, indexCount)
         .build(*_modelView.engine, renderable);
     
     _modelView.scene->addEntity(renderable);

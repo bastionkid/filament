@@ -15,7 +15,7 @@
  */
 
 // These defines are set in the "Preprocessor Macros" build setting for each scheme.
-#if !FILAMENT_APP_USE_METAL && !FILAMENT_APP_USE_OPENGL
+#if !FILAMENT_APP_USE_METAL
 #error A valid FILAMENT_APP_USE_ backend define must be set.
 #endif
 
@@ -299,40 +299,6 @@ const float kDefaultTargetPositionZ = 0.0f;
     }
 }
 
-- (void)showEntity:(NSString*)entityName {
-    Entity entity = _asset->getFirstEntityByName([entityName UTF8String]);
-    auto& rm = _engine->getRenderableManager();
-    
-    if (rm.hasComponent(entity)) {
-        rm.setLayerMask(rm.getInstance(entity), 0xFF, 1);
-    }
-}
-
-- (void)hideEntity:(NSString*)entityName {
-    Entity entity = _asset->getFirstEntityByName([entityName UTF8String]);
-    auto& rm = _engine->getRenderableManager();
-    
-    if (rm.hasComponent(entity)) {
-        rm.setLayerMask(rm.getInstance(entity), 0xFF, 0);
-    }
-}
-
-- (void)translateEntity:(float)x :(float)y :(float)z :(NSString*)entityName {
-    Entity entity = _asset->getFirstEntityByName([entityName UTF8String]);
-    auto& tm = _engine->getTransformManager();
-    
-    // First get current transform matrix for the entity to ensure all the non translation related
-    // properties are preserved after applying transformation
-    auto transform = tm.getTransform(tm.getInstance(entity));
-    
-    // indices (12, 13, 14) represents (x, y, z) co-ordinates in the transformation matrix
-    transform[3][0] = x;
-    transform[3][1] = y;
-    transform[3][2] = z;
-    
-    tm.setTransform(tm.getInstance(entity), transform);
-}
-
 - (void)dealloc {
     [self destroyModel];
 
@@ -456,11 +422,45 @@ const float kDefaultTargetPositionZ = 0.0f;
 }
 
 + (Class)layerClass {
-#if FILAMENT_APP_USE_OPENGL
-    return [CAEAGLLayer class];
-#elif FILAMENT_APP_USE_METAL
     return [CAMetalLayer class];
-#endif
+}
+
+#pragma mark Render utils
+
+- (void)showEntity:(NSString*)entityName {
+    Entity entity = _asset->getFirstEntityByName([entityName UTF8String]);
+    auto& rm = _engine->getRenderableManager();
+    
+    if (rm.hasComponent(entity)) {
+        rm.setLayerMask(rm.getInstance(entity), 0xFF, 1);
+    }
+}
+
+- (void)hideEntity:(NSString*)entityName {
+    Entity entity = _asset->getFirstEntityByName([entityName UTF8String]);
+    auto& rm = _engine->getRenderableManager();
+    
+    if (rm.hasComponent(entity)) {
+        rm.setLayerMask(rm.getInstance(entity), 0xFF, 0);
+    }
+}
+
+#pragma mark Transform utils
+
+- (void)translateEntity:(float)x :(float)y :(float)z :(NSString*)entityName {
+    Entity entity = _asset->getFirstEntityByName([entityName UTF8String]);
+    auto& tm = _engine->getTransformManager();
+    
+    // First get current transform matrix for the entity to ensure all the non translation related
+    // properties are preserved after applying transformation
+    auto transform = tm.getTransform(tm.getInstance(entity));
+    
+    // indices (12, 13, 14) represents (x, y, z) co-ordinates in the transformation matrix
+    transform[3][0] = x;
+    transform[3][1] = y;
+    transform[3][2] = z;
+    
+    tm.setTransform(tm.getInstance(entity), transform);
 }
 
 @end

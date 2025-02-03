@@ -126,11 +126,7 @@ static constexpr uint16_t TRIANGLE_INDICES[3] = { 0, 1, 2 };
     //    ambientOcclusionOptions.enabled = true;
     //    self.modelView.view->setAmbientOcclusionOptions(ambientOcclusionOptions);
     
-    [self createDefaultRenderables];
-    
-    // Creating light is mandatory
-    [self createLights];
-    
+    // Initialize quad rendering properties
     _material = Material::Builder()
         .package((void*) CYLINDER_MATERIAL, sizeof(CYLINDER_MATERIAL))
         .build(*_modelView.engine);
@@ -153,6 +149,11 @@ static constexpr uint16_t TRIANGLE_INDICES[3] = { 0, 1, 2 };
         .build(*_modelView.engine);
     
     _indexBuffer->setBuffer(*_modelView.engine, IndexBuffer::BufferDescriptor(indices, indexSize, nullptr));
+    
+    [self createDefaultRenderables];
+    
+    // Creating light is mandatory
+    [self createLights];
 }
 
 - (void)appWillResignActive:(NSNotification*)notification {

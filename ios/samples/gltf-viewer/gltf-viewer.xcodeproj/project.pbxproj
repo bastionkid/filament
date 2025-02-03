@@ -10,6 +10,11 @@
 		00101E55E74547D6C2FD8C03 /* default_env_ibl.ktx in Resources */ = {isa = PBXBuildFile; fileRef = A027015F6F283E92C379F0B1 /* default_env_ibl.ktx */; };
 		1297B48507BF2849751AE0E6 /* FILViewController.mm in Sources */ = {isa = PBXBuildFile; fileRef = 3B5A2C1598614ED63098A783 /* FILViewController.mm */; };
 		285A74424AF5E3014363F8E6 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 14BA4B8B6A697847DA9934D2 /* Main.storyboard */; };
+		4332F0792D507901002DE724 /* Vertex.mm in Sources */ = {isa = PBXBuildFile; fileRef = 4332F0782D5078FF002DE724 /* Vertex.mm */; };
+		4332F07C2D507A28002DE724 /* Quad.mm in Sources */ = {isa = PBXBuildFile; fileRef = 4332F07B2D507A27002DE724 /* Quad.mm */; };
+		4332F07F2D507DED002DE724 /* QuadraticBezier.mm in Sources */ = {isa = PBXBuildFile; fileRef = 4332F07E2D507DEB002DE724 /* QuadraticBezier.mm */; };
+		4332F0832D508B7C002DE724 /* CubicBezier.mm in Sources */ = {isa = PBXBuildFile; fileRef = 4332F0822D508B77002DE724 /* CubicBezier.mm */; };
+		4332F0862D508C89002DE724 /* CylinderUtils.mm in Sources */ = {isa = PBXBuildFile; fileRef = 4332F0852D508C88002DE724 /* CylinderUtils.mm */; };
 		453F7CCB3A029F9604857C1C /* FILModelView.mm in Sources */ = {isa = PBXBuildFile; fileRef = 1F16324F2F287CB27E1A84EB /* FILModelView.mm */; };
 		45F28F70A616F4B5C67FEC66 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = DF545E3F8FD553E334F5D6D6 /* Assets.xcassets */; };
 		4FE0C24C9B962C9F7439C9D4 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 1FF7EE9D5DD74F1A740C0D88 /* main.m */; };
@@ -26,6 +31,18 @@
 		1FF7EE9D5DD74F1A740C0D88 /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
 		2B973C3E0FE0EEED37D41D32 /* FILModelView.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = FILModelView.h; sourceTree = "<group>"; };
 		3B5A2C1598614ED63098A783 /* FILViewController.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = FILViewController.mm; sourceTree = "<group>"; };
+		4332F0772D5078B7002DE724 /* Vertex.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Vertex.h; sourceTree = "<group>"; };
+		4332F0782D5078FF002DE724 /* Vertex.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = Vertex.mm; sourceTree = "<group>"; };
+		4332F07A2D507A22002DE724 /* Quad.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Quad.h; sourceTree = "<group>"; };
+		4332F07B2D507A27002DE724 /* Quad.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = Quad.mm; sourceTree = "<group>"; };
+		4332F07D2D507DDA002DE724 /* QuadraticBezier.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = QuadraticBezier.h; sourceTree = "<group>"; };
+		4332F07E2D507DEB002DE724 /* QuadraticBezier.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = QuadraticBezier.mm; sourceTree = "<group>"; };
+		4332F0802D508A06002DE724 /* CubicBezier.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CubicBezier.h; sourceTree = "<group>"; };
+		4332F0822D508B77002DE724 /* CubicBezier.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = CubicBezier.mm; sourceTree = "<group>"; };
+		4332F0842D508C7C002DE724 /* CylinderUtils.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CylinderUtils.h; sourceTree = "<group>"; };
+		4332F0852D508C88002DE724 /* CylinderUtils.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = CylinderUtils.mm; sourceTree = "<group>"; };
+		4332F0892D50BC29002DE724 /* cylinder.mat */ = {isa = PBXFileReference; lastKnownFileType = text; path = cylinder.mat; sourceTree = "<group>"; };
+		4332F08A2D50C4C3002DE724 /* bakedColor.mat */ = {isa = PBXFileReference; lastKnownFileType = text; path = bakedColor.mat; sourceTree = "<group>"; };
 		5271315876D6BC61346DFD97 /* default_env_skybox.ktx */ = {isa = PBXFileReference; lastKnownFileType = file; path = default_env_skybox.ktx; sourceTree = "<group>"; };
 		6E6BB885F2B193E786CD9F14 /* FILViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = FILViewController.h; sourceTree = "<group>"; };
 		7F78E613984102280C822052 /* BusterDrone */ = {isa = PBXFileReference; lastKnownFileType = folder; name = BusterDrone; path = ../../../third_party/models/BusterDrone; sourceTree = SOURCE_ROOT; };
@@ -41,6 +58,16 @@
 		2678CEA2FDBFE6D6DC1D4D71 /* gltf-viewer */ = {
 			isa = PBXGroup;
 			children = (
+				4332F0842D508C7C002DE724 /* CylinderUtils.h */,
+				4332F0852D508C88002DE724 /* CylinderUtils.mm */,
+				4332F0802D508A06002DE724 /* CubicBezier.h */,
+				4332F0822D508B77002DE724 /* CubicBezier.mm */,
+				4332F07D2D507DDA002DE724 /* QuadraticBezier.h */,
+				4332F07E2D507DEB002DE724 /* QuadraticBezier.mm */,
+				4332F07A2D507A22002DE724 /* Quad.h */,
+				4332F07B2D507A27002DE724 /* Quad.mm */,
+				4332F0772D5078B7002DE724 /* Vertex.h */,
+				4332F0782D5078FF002DE724 /* Vertex.mm */,
 				03A535A718B2F64A70C5F231 /* AppDelegate.h */,
 				A0A866F9B1B8D315E88D3D12 /* AppDelegate.m */,
 				2B973C3E0FE0EEED37D41D32 /* FILModelView.h */,
@@ -60,6 +87,15 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		4332F0882D50BBEA002DE724 /* Materials */ = {
+			isa = PBXGroup;
+			children = (
+				4332F08A2D50C4C3002DE724 /* bakedColor.mat */,
+				4332F0892D50BC29002DE724 /* cylinder.mat */,
+			);
+			path = Materials;
+			sourceTree = "<group>";
+		};
 		4904A2B5EF7E75CE42E88D69 /* SupportFiles */ = {
 			isa = PBXGroup;
 			children = (
@@ -75,6 +111,7 @@
 		7DB4500696DB13904CDF40C4 = {
 			isa = PBXGroup;
 			children = (
+				4332F0882D50BBEA002DE724 /* Materials */,
 				7F78E613984102280C822052 /* BusterDrone */,
 				E102A6C527928715EF7B0497 /* default_env */,
 				2678CEA2FDBFE6D6DC1D4D71 /* gltf-viewer */,
@@ -99,6 +136,8 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = B9DE609B1909C6A9AF36094D /* Build configuration list for PBXNativeTarget "gltf-viewer" */;
 			buildPhases = (
+				4332F0872D50BB06002DE724 /* Build Material (Cylinder) */,
+				4332F08B2D50C4E2002DE724 /* Build Material (Baked Color) */,
 				0B375996CE4EBC4A5B258C27 /* Build Resources */,
 				C8F38C978C83CD5335A21F72 /* Sources */,
 				7D3B1B99EEAFB6F53ECBAA5A /* Resources */,
@@ -176,6 +215,42 @@
 			shellPath = /bin/sh;
 			shellScript = "#/usr/bin/env/bash\n\nset -e\n\n# Compile resources.\n\n# The gltf-viewer app requires two resources:\n# 1. The IBL image\n# 2. The skybox image\n\nHOST_TOOLS_PATH=\"${HOST_TOOLS_PATH:-../../../out/release/filament/bin}\"\n\ncmgen_path=`find ${HOST_TOOLS_PATH} -name cmgen -type f | head -n 1`\n\n# Ensure that the required tools are present in the out/ directory.\n# These can be built by running ./build.sh -p desktop -i release at Filament's root directory.\n\nif [[ ! -e \"${cmgen_path}\" ]]; then\n  echo \"No cmgen binary could be found in ${HOST_TOOLS_PATH}.\"\n  echo \"Ensure Filament has been built/installed before building this app.\"\n  exit 1\nfi\n\n# cmgen consumes an HDR environment map and generates two mipmapped KTX files (IBL and skybox)\n\"${cmgen_path}\" \\\n    --quiet \\\n    --deploy=\"${PROJECT_DIR}/generated/default_env\" \\\n    --format=ktx --size=256 --extract-blur=0.1 \\\n    \"${PROJECT_DIR}/../../../third_party/environments/lightroom_14b.hdr\"\n";
 		};
+		4332F0872D50BB06002DE724 /* Build Material (Cylinder) */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Build Material (Cylinder)";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Compile bakedColor material.\n\nHOST_TOOLS_PATH=\"${HOST_TOOLS_PATH:-../../../out/release/filament/bin}\"\nmatc_path=`find ${HOST_TOOLS_PATH} -name matc -type f | head -n 1`\n\nif [[ ! -e \"${matc_path}\" ]]; then\n  echo \"No matc binary could be found in ${HOST_TOOLS_PATH}.\"\n  echo \"Ensure Filament has been built/installed before building this app.\"\n  exit 1\nfi\n\nmkdir -p \"${PROJECT_DIR}/generated/\"\n\"${matc_path}\" \\\n    --api all \\\n    -f header \\\n    -o \"${PROJECT_DIR}/generated/cylinder.inc\" \\\n    \"${PROJECT_DIR}/Materials/cylinder.mat\"\n\n# FILViewController.mm includes cylinder.inc, so touch it to force Xcode to\n# recompile it.\ntouch \"${PROJECT_DIR}/gltf-viewer/FILViewController.mm\"\n";
+		};
+		4332F08B2D50C4E2002DE724 /* Build Material (Baked Color) */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Build Material (Baked Color)";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Compile bakedColor material.\n\nHOST_TOOLS_PATH=\"${HOST_TOOLS_PATH:-../../../out/release/filament/bin}\"\nmatc_path=`find ${HOST_TOOLS_PATH} -name matc -type f | head -n 1`\n\nif [[ ! -e \"${matc_path}\" ]]; then\n  echo \"No matc binary could be found in ${HOST_TOOLS_PATH}.\"\n  echo \"Ensure Filament has been built/installed before building this app.\"\n  exit 1\nfi\n\nmkdir -p \"${PROJECT_DIR}/generated/\"\n\"${matc_path}\" \\\n    --api all \\\n    -f header \\\n    -o \"${PROJECT_DIR}/generated/bakedColor.inc\" \\\n    \"${PROJECT_DIR}/Materials/bakedColor.mat\"\n\n# FilamentView.mm includes bakedColor.inc, so touch it to force Xcode to\n# recompile it.\ntouch \"${PROJECT_DIR}/gltf-viewer/FILViewController.mm\"\n";
+		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -183,8 +258,13 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4332F07C2D507A28002DE724 /* Quad.mm in Sources */,
+				4332F0862D508C89002DE724 /* CylinderUtils.mm in Sources */,
 				5C706EF98086B64B4CB3EF9A /* AppDelegate.m in Sources */,
+				4332F0792D507901002DE724 /* Vertex.mm in Sources */,
+				4332F07F2D507DED002DE724 /* QuadraticBezier.mm in Sources */,
 				453F7CCB3A029F9604857C1C /* FILModelView.mm in Sources */,
+				4332F0832D508B7C002DE724 /* CubicBezier.mm in Sources */,
 				1297B48507BF2849751AE0E6 /* FILViewController.mm in Sources */,
 				4FE0C24C9B962C9F7439C9D4 /* main.m in Sources */,
 			);

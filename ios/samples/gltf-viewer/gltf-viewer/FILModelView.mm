@@ -85,21 +85,21 @@ const float kDefaultTargetPositionZ = 0.0f;
 @implementation FILModelView {
     Camera* _camera;
     SwapChain* _swapChain;
-
+    
     struct {
         Entity camera;
     } _entities;
-
+    
     MaterialProvider* _materialProvider;
     AssetLoader* _assetLoader;
     ResourceLoader* _resourceLoader;
-
+    
     Manipulator<float>* _manipulator;
     TextureProvider* _stbDecoder;
     TextureProvider* _ktxDecoder;
-
+    
     FilamentAsset* _asset;
-
+    
     UIPanGestureRecognizer* _panRecognizer;
     UIPinchGestureRecognizer* _pinchRecognizer;
     CGFloat _previousScale;
@@ -125,7 +125,7 @@ const float kDefaultTargetPositionZ = 0.0f;
     self.contentScaleFactor = UIScreen.mainScreen.nativeScale;
     [self initializeMetalLayer];
     _engine = Engine::create(Engine::Backend::METAL);
-
+    
     _renderer = _engine->createRenderer();
     _scene = _engine->createScene();
     _entities.camera = EntityManager::get().create();
@@ -133,14 +133,14 @@ const float kDefaultTargetPositionZ = 0.0f;
     _view = _engine->createView();
     _view->setScene(_scene);
     _view->setCamera(_camera);
-
+    
     _cameraFocalLength = kFocalLength;
     _camera->setExposure(kAperture, kShutterSpeed, kSensitivity);
-
+    
     _swapChain = _engine->createSwapChain((__bridge void*)self.layer);
-
+    
     _materialProvider =
-            createUbershaderProvider(_engine, UBERARCHIVE_DEFAULT_DATA, UBERARCHIVE_DEFAULT_SIZE);
+    createUbershaderProvider(_engine, UBERARCHIVE_DEFAULT_DATA, UBERARCHIVE_DEFAULT_SIZE);
     EntityManager& em = EntityManager::get();
     NameComponentManager* ncm = new NameComponentManager(em);
     _assetLoader = AssetLoader::create({_engine, _materialProvider, ncm, &em});
@@ -150,26 +150,26 @@ const float kDefaultTargetPositionZ = 0.0f;
     _resourceLoader->addTextureProvider("image/png", _stbDecoder);
     _resourceLoader->addTextureProvider("image/jpeg", _stbDecoder);
     _resourceLoader->addTextureProvider("image/ktx2", _ktxDecoder);
-
+    
     _manipulator = Manipulator<float>::Builder()
         .orbitHomePosition(kDefaultEyePositionX, kDefaultEyePositionY, kDefaultEyePositionZ)
         .targetPosition(kDefaultTargetPositionX, kDefaultTargetPositionY, kDefaultTargetPositionZ)
         .orbitSpeed(kOrbitSpeed, kOrbitSpeed)
         .zoomSpeed(kZoomSpeed)
         .build(Mode::ORBIT);
-
+    
     // Set up pan and pinch gesture recognizers, used to orbit, zoom, and translate the camera.
     _panRecognizer = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(didPan:)];
     _panRecognizer.minimumNumberOfTouches = 1;
     // Disable PAN gesture by setting the maximumNumberOfTouches to 1 instead of 2
     _panRecognizer.maximumNumberOfTouches = 1;
     _pinchRecognizer = [[UIPinchGestureRecognizer alloc] initWithTarget:self action:@selector(didPinch:)];
-
+    
     [self addGestureRecognizer:_panRecognizer];
     [self addGestureRecognizer:_pinchRecognizer];
     _previousScale = 1.0f;
     _currentZoomScale = 1.0f;
-
+    
     _asset = nullptr;
 }
 
@@ -201,9 +201,9 @@ const float kDefaultTargetPositionZ = 0.0f;
 - (void)issuePickQuery:(CGPoint)point callback:(PickCallback)callback {
     CGPoint pointOriginBottomLeft = CGPointMake(point.x, self.bounds.size.height - point.y);
     CGPoint pointScaled = CGPointMake(pointOriginBottomLeft.x * self.contentScaleFactor,
-            pointOriginBottomLeft.y * self.contentScaleFactor);
+                                      pointOriginBottomLeft.y * self.contentScaleFactor);
     _view->pick(pointScaled.x, pointScaled.y,
-            [callback](View::PickingQueryResult const& result) { callback(result.renderable); });
+                [callback](View::PickingQueryResult const& result) { callback(result.renderable); });
 }
 
 - (NSString* _Nullable)getEntityName:(utils::Entity)entity {
@@ -245,12 +245,12 @@ const float kDefaultTargetPositionZ = 0.0f;
 - (void)loadModelGlb:(NSData*)buffer {
     [self destroyModel];
     _asset = _assetLoader->createAsset(
-            static_cast<const uint8_t*>(buffer.bytes), static_cast<uint32_t>(buffer.length));
-
+                                       static_cast<const uint8_t*>(buffer.bytes), static_cast<uint32_t>(buffer.length));
+    
     if (!_asset) {
         return;
     }
-
+    
     _scene->addEntities(_asset->getEntities(), _asset->getEntityCount());
     _resourceLoader->loadResources(_asset);
     _animator = _asset->getInstance()->getAnimator();
@@ -260,14 +260,14 @@ const float kDefaultTargetPositionZ = 0.0f;
 - (void)loadModelGltf:(NSData*)buffer callback:(ResourceCallback)callback {
     [self destroyModel];
     _asset = _assetLoader->createAsset(
-            static_cast<const uint8_t*>(buffer.bytes), static_cast<uint32_t>(buffer.length));
-
+                                       static_cast<const uint8_t*>(buffer.bytes), static_cast<uint32_t>(buffer.length));
+    
     if (!_asset) {
         return;
     }
-
+    
     auto destroy = [](void*, size_t, void* userData) { CFBridgingRelease(userData); };
-
+    
     const char* const* const resourceUris = _asset->getResourceUris();
     const size_t resourceUriCount = _asset->getResourceUriCount();
     for (size_t i = 0; i < resourceUriCount; i++) {
@@ -275,14 +275,14 @@ const float kDefaultTargetPositionZ = 0.0f;
         NSString* uriString = [NSString stringWithCString:uri encoding:NSUTF8StringEncoding];
         NSData* data = callback(uriString);
         ResourceLoader::BufferDescriptor b(
-                data.bytes, data.length, destroy, (void*)CFBridgingRetain(data));
+                                           data.bytes, data.length, destroy, (void*)CFBridgingRetain(data));
         _resourceLoader->addResourceData(uri, std::move(b));
     }
-
+    
     _resourceLoader->loadResources(_asset);
     _animator = _asset->getInstance()->getAnimator();
     _asset->releaseSourceData();
-
+    
     _scene->addEntities(_asset->getEntities(), _asset->getEntityCount());
 }
 
@@ -291,7 +291,7 @@ const float kDefaultTargetPositionZ = 0.0f;
     math::float3 eye, target, upward;
     _manipulator->getLookAt(&eye, &target, &upward);
     _camera->lookAt(eye, target, upward);
-
+    
     // Render the scene, unless the renderer wants to skip the frame.
     if (_renderer->beginFrame(_swapChain)) {
         _renderer->render(_view);
@@ -301,18 +301,18 @@ const float kDefaultTargetPositionZ = 0.0f;
 
 - (void)dealloc {
     [self destroyModel];
-
+    
     _materialProvider->destroyMaterials();
     delete _materialProvider;
     auto* ncm = _assetLoader->getNames();
     delete ncm;
     AssetLoader::destroy(&_assetLoader);
     delete _resourceLoader;
-
+    
     delete _manipulator;
     delete _stbDecoder;
     delete _ktxDecoder;
-
+    
     _engine->destroy(_swapChain);
     _engine->destroy(_view);
     EntityManager::get().destroy(_entities.camera);
@@ -341,16 +341,16 @@ const float kDefaultTargetPositionZ = 0.0f;
     if (!_view || !_camera || !_manipulator) {
         return;
     }
-
+    
     _manipulator->setViewport(self.bounds.size.width, self.bounds.size.height);
-
+    
     const uint32_t width = self.bounds.size.width * self.contentScaleFactor;
     const uint32_t height = self.bounds.size.height * self.contentScaleFactor;
     _view->setViewport({0, 0, width, height});
-
+    
     CAMetalLayer* metalLayer = (CAMetalLayer*)self.layer;
     metalLayer.drawableSize = CGSizeMake(width, height);
-
+    
     const double aspect = (double)width / height;
     _camera->setLensProjection(self.cameraFocalLength, aspect, kNearPlane, kFarPlane);
 }

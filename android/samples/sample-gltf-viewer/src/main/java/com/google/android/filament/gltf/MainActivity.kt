@@ -595,12 +595,12 @@ class MainActivity : FragmentActivity() {
     }
 
     private fun addQuad(quad: Quad) {
-        val vertexCount = 4 * 3 // Quad has 4 vertices each having 3 co-ordinates
+        val vertexCount = 4
         val vertexData = createBufferDataFromQuad(quad)
 
         val vertexBuffer = VertexBuffer.Builder()
             .bufferCount(1)
-            .vertexCount(vertexCount)
+            .vertexCount(vertexCount)  // Quad has 4 vertices
             .attribute(VertexAttribute.POSITION, 0, AttributeType.FLOAT3, 0, VERTEX_POSITION_SIZE)
             .build(modelViewer.engine)
 
@@ -633,12 +633,11 @@ class MainActivity : FragmentActivity() {
 
         // Create window of two points and then smoothen the curve along those two points
         vertices.windowed(size = 2).forEach { (pointA, pointB) ->
-            /**
-             * Here we want to smoothen the curve between pointA and pointB along z-y axis and the
-             * x axis points will be linearly interpolated. Here we get
-             */
+            // Here we want to smoothen the curve between pointA and pointB along z-y axis and the
+            // x axis points will be linearly interpolated. Here we get
             val xIncrement = (pointA.x - pointB.x) / (interpolationPoints - 1)
 
+            // Calculate control point
             val controlPointZ = (pointA.z + pointB.z) / 2
             val controlPointY = if (pointA.y > pointB.y) {
                 (pointA.y - pointB.y) * 0.75f
@@ -646,6 +645,7 @@ class MainActivity : FragmentActivity() {
                 (pointB.y - pointA.y) * 0.75f
             }
 
+            // Generate quadratic Bezier points in Z-Y plane
             val quadraticBezierPoints = quadraticBezier(
                 start = Pair(pointA.z, pointA.y),
                 control = Pair(controlPointZ, controlPointY),
@@ -659,6 +659,7 @@ class MainActivity : FragmentActivity() {
                 )
             }
 
+            // Generate circumference points for each Bezier vertex
             val verticesPoints = quadraticBezierPoints.map { vertex ->
                 CylinderUtils.getPointsAlongCircumference(
                     centerX = vertex.x,
@@ -669,6 +670,7 @@ class MainActivity : FragmentActivity() {
                 )
             }
 
+            // Create quads between consecutive circumference point sets
             verticesPoints.windowed(2).map { (pointAVertices, pointBVertices) ->
                 val quadVertices = CylinderUtils.getQuadVertices(pointAVertices, pointBVertices)
 

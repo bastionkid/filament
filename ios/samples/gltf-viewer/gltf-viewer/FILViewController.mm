@@ -49,14 +49,6 @@ static constexpr uint8_t CYLINDER_MATERIAL[] = {
 #include "cylinder.inc"
 };
 
-static constexpr float3 TRIANGLE_VERTICES[3] = {
-    {0, 2, 0},
-    {-1, 0, 0},
-    {1, 0, 0}
-};
-
-static constexpr uint16_t TRIANGLE_INDICES[3] = { 0, 1, 2 };
-
 @interface FILViewController ()
 
 - (void)startDisplayLink;
@@ -207,8 +199,8 @@ static constexpr uint16_t TRIANGLE_INDICES[3] = { 0, 1, 2 };
     [self.modelView hideEntity:@"ball_5"];
     [self.modelView hideEntity:@"ball_6"];
     
-//    [self addTriangle];
-    [self addCylinder];
+    [self addTriangle];
+//    [self addCylinder];
 }
 
 - (void)createLights {
@@ -424,20 +416,46 @@ static constexpr uint16_t TRIANGLE_INDICES[3] = { 0, 1, 2 };
     int indexCount = 3; // Triangle is made up of 3 vertices
     int indexSize = indexCount * shortSize;
     
+    // Create vertexData
+    void* vertexData = malloc(vertexCount * vertexSize);
+    float* data = static_cast<float*>(vertexData);
+    data[0] = 0;
+    data[1] = 2;
+    data[2] = 0;
+    data[3] = -1;
+    data[4] = 0;
+    data[5] = 0;
+    data[6] = 1;
+    data[7] = 0;
+    data[8] = 0;
+    
     VertexBuffer* vertexBuffer = VertexBuffer::Builder()
         .vertexCount(vertexCount)
         .bufferCount(1)
         .attribute(VertexAttribute::POSITION, 0, VertexBuffer::AttributeType::FLOAT3, 0, vertexSize)
         .build(*_modelView.engine);
     
-    vertexBuffer->setBufferAt(*_modelView.engine, 0, VertexBuffer::BufferDescriptor(TRIANGLE_VERTICES, vertexCount * vertexSize, nullptr));
+    vertexBuffer->setBufferAt(*_modelView.engine, 0, VertexBuffer::BufferDescriptor(vertexData, vertexCount * vertexSize, [](void* buffer, size_t size, void* user) {
+        // release buffer
+        free(buffer);
+    }));
+    
+    // Create indexData
+    void* indexData = malloc(indexSize);
+    short* indices = static_cast<short*>(indexData);
+    indices[0] = 0;
+    indices[1] = 1;
+    indices[2] = 2;
     
     IndexBuffer* indexBuffer = IndexBuffer::Builder()
         .indexCount(indexCount)
         .bufferType(IndexBuffer::IndexType::USHORT)
         .build(*_modelView.engine);
     
-    indexBuffer->setBuffer(*_modelView.engine, IndexBuffer::BufferDescriptor(TRIANGLE_INDICES, indexSize, nullptr));
+    indexBuffer->setBuffer(*_modelView.engine, IndexBuffer::BufferDescriptor(indexData, indexSize, [](void* buffer, size_t size, void* user) {
+        // release buffer
+        free(buffer);
+    }));
     
     Entity renderable = EntityManager::get().create();
     

@@ -10,6 +10,8 @@
 		00101E55E74547D6C2FD8C03 /* default_env_ibl.ktx in Resources */ = {isa = PBXBuildFile; fileRef = A027015F6F283E92C379F0B1 /* default_env_ibl.ktx */; };
 		1297B48507BF2849751AE0E6 /* FILViewController.mm in Sources */ = {isa = PBXBuildFile; fileRef = 3B5A2C1598614ED63098A783 /* FILViewController.mm */; };
 		285A74424AF5E3014363F8E6 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 14BA4B8B6A697847DA9934D2 /* Main.storyboard */; };
+		431579F12D525C2F008E0403 /* white_furnace_ibl.ktx in Resources */ = {isa = PBXBuildFile; fileRef = 431579EF2D525C2F008E0403 /* white_furnace_ibl.ktx */; };
+		431579F22D525C2F008E0403 /* white_furnace_skybox.ktx in Resources */ = {isa = PBXBuildFile; fileRef = 431579F02D525C2F008E0403 /* white_furnace_skybox.ktx */; };
 		4332F0792D507901002DE724 /* Vertex.mm in Sources */ = {isa = PBXBuildFile; fileRef = 4332F0782D5078FF002DE724 /* Vertex.mm */; };
 		4332F07C2D507A28002DE724 /* Quad.mm in Sources */ = {isa = PBXBuildFile; fileRef = 4332F07B2D507A27002DE724 /* Quad.mm */; };
 		4332F07F2D507DED002DE724 /* QuadraticBezier.mm in Sources */ = {isa = PBXBuildFile; fileRef = 4332F07E2D507DEB002DE724 /* QuadraticBezier.mm */; };
@@ -31,6 +33,8 @@
 		1FF7EE9D5DD74F1A740C0D88 /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
 		2B973C3E0FE0EEED37D41D32 /* FILModelView.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = FILModelView.h; sourceTree = "<group>"; };
 		3B5A2C1598614ED63098A783 /* FILViewController.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = FILViewController.mm; sourceTree = "<group>"; };
+		431579EF2D525C2F008E0403 /* white_furnace_ibl.ktx */ = {isa = PBXFileReference; lastKnownFileType = file; path = white_furnace_ibl.ktx; sourceTree = "<group>"; };
+		431579F02D525C2F008E0403 /* white_furnace_skybox.ktx */ = {isa = PBXFileReference; lastKnownFileType = file; path = white_furnace_skybox.ktx; sourceTree = "<group>"; };
 		4332F0772D5078B7002DE724 /* Vertex.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Vertex.h; sourceTree = "<group>"; };
 		4332F0782D5078FF002DE724 /* Vertex.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = Vertex.mm; sourceTree = "<group>"; };
 		4332F07A2D507A22002DE724 /* Quad.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Quad.h; sourceTree = "<group>"; };
@@ -87,6 +91,15 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		431579EE2D525C10008E0403 /* white_furnace */ = {
+			isa = PBXGroup;
+			children = (
+				431579EF2D525C2F008E0403 /* white_furnace_ibl.ktx */,
+				431579F02D525C2F008E0403 /* white_furnace_skybox.ktx */,
+			);
+			path = white_furnace;
+			sourceTree = "<group>";
+		};
 		4332F0882D50BBEA002DE724 /* Materials */ = {
 			isa = PBXGroup;
 			children = (
@@ -111,6 +124,7 @@
 		7DB4500696DB13904CDF40C4 = {
 			isa = PBXGroup;
 			children = (
+				431579EE2D525C10008E0403 /* white_furnace */,
 				4332F0882D50BBEA002DE724 /* Materials */,
 				7F78E613984102280C822052 /* BusterDrone */,
 				E102A6C527928715EF7B0497 /* default_env */,
@@ -188,6 +202,8 @@
 				285A74424AF5E3014363F8E6 /* Main.storyboard in Resources */,
 				00101E55E74547D6C2FD8C03 /* default_env_ibl.ktx in Resources */,
 				A7C7D42BDE57B77CB9D9C5D2 /* default_env_skybox.ktx in Resources */,
+				431579F12D525C2F008E0403 /* white_furnace_ibl.ktx in Resources */,
+				431579F22D525C2F008E0403 /* white_furnace_skybox.ktx in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

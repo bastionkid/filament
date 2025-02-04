@@ -130,17 +130,22 @@ static constexpr uint8_t CYLINDER_MATERIAL[] = {
     int shortSize = 2;
     int indexSize = indexCount * shortSize;
     
-    uint16_t indices[6] = {
-        0, 1, 2,
-        2, 1, 3
-    };
+    // Create indexData
+    void* indexData = malloc(indexSize);
+    short* indices = static_cast<short*>(indexData);
+    indices[0] = 0;
+    indices[1] = 1;
+    indices[2] = 2;
+    indices[3] = 2;
+    indices[4] = 1;
+    indices[5] = 3;
     
     _indexBuffer = IndexBuffer::Builder()
         .indexCount(indexCount)
         .bufferType(IndexBuffer::IndexType::USHORT)
         .build(*_modelView.engine);
     
-    _indexBuffer->setBuffer(*_modelView.engine, IndexBuffer::BufferDescriptor(indices, indexSize, nullptr));
+    _indexBuffer->setBuffer(*_modelView.engine, IndexBuffer::BufferDescriptor(indexData, indexSize, nullptr));
     
     [self createDefaultRenderables];
     
@@ -199,8 +204,8 @@ static constexpr uint8_t CYLINDER_MATERIAL[] = {
     [self.modelView hideEntity:@"ball_5"];
     [self.modelView hideEntity:@"ball_6"];
     
-    [self addTriangle];
-//    [self addCylinder];
+//    [self addTriangle];
+    [self addCylinder];
 }
 
 - (void)createLights {
@@ -381,12 +386,21 @@ static constexpr uint8_t CYLINDER_MATERIAL[] = {
     
     int indexCount = 6; // Quad is made up of 2 triangles, having 3 indices for each
     
-    float3 quadVertices[4] = {
-        {quad.topLeftVertex.x, quad.topLeftVertex.y, quad.topLeftVertex.z},
-        {quad.bottomLeftVertex.x, quad.bottomLeftVertex.y, quad.bottomLeftVertex.z},
-        {quad.topRightVertex.x, quad.topRightVertex.y, quad.topRightVertex.z},
-        {quad.bottomRightVertex.x, quad.bottomRightVertex.y, quad.bottomRightVertex.z}
-    };
+    // Create vertexData
+    void* vertexData = malloc(vertexCount * vertexSize);
+    float* data = static_cast<float*>(vertexData);
+    data[0] = quad.topLeftVertex.x;
+    data[1] = quad.topLeftVertex.y;
+    data[2] = quad.topLeftVertex.z;
+    data[3] = quad.bottomLeftVertex.x;
+    data[4] = quad.bottomLeftVertex.y;
+    data[5] = quad.bottomLeftVertex.z;
+    data[6] = quad.topRightVertex.x;
+    data[7] = quad.topRightVertex.y;
+    data[8] = quad.topRightVertex.z;
+    data[9] = quad.bottomRightVertex.x;
+    data[10] = quad.bottomRightVertex.y;
+    data[11] = quad.bottomRightVertex.z;
     
     VertexBuffer* vertexBuffer = VertexBuffer::Builder()
         .vertexCount(vertexCount)
@@ -394,7 +408,10 @@ static constexpr uint8_t CYLINDER_MATERIAL[] = {
         .attribute(VertexAttribute::POSITION, 0, VertexBuffer::AttributeType::FLOAT3, 0, vertexSize)
         .build(*_modelView.engine);
     
-    vertexBuffer->setBufferAt(*_modelView.engine, 0, VertexBuffer::BufferDescriptor(quadVertices, vertexSize * 4, nullptr));
+    vertexBuffer->setBufferAt(*_modelView.engine, 0, VertexBuffer::BufferDescriptor(vertexData, vertexSize * 4, [](void* buffer, size_t size, void* user) {
+        // release buffer
+        free(buffer);
+    }));
     
     Entity renderable = EntityManager::get().create();
     

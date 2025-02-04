@@ -210,7 +210,7 @@ static constexpr uint8_t CYLINDER_MATERIAL[] = {
 
 - (void)createLights {
     // Load Skybox.
-    NSString* skyboxPath = [[NSBundle mainBundle] pathForResource:@"default_env_skybox" ofType:@"ktx"];
+    NSString* skyboxPath = [[NSBundle mainBundle] pathForResource:@"white_furnace_skybox" ofType:@"ktx"];
     NSData* skyboxBuffer = [NSData dataWithContentsOfFile:skyboxPath];
     
     image::Ktx1Bundle* skyboxBundle = new image::Ktx1Bundle(static_cast<const uint8_t*>(skyboxBuffer.bytes), static_cast<uint32_t>(skyboxBuffer.length));
@@ -219,7 +219,7 @@ static constexpr uint8_t CYLINDER_MATERIAL[] = {
     self.modelView.scene->setSkybox(_skybox);
     
     // Load IBL.
-    NSString* iblPath = [[NSBundle mainBundle] pathForResource:@"default_env_ibl" ofType:@"ktx"];
+    NSString* iblPath = [[NSBundle mainBundle] pathForResource:@"white_furnace_ibl" ofType:@"ktx"];
     NSData* iblBuffer = [NSData dataWithContentsOfFile:iblPath];
     
     image::Ktx1Bundle* iblBundle = new image::Ktx1Bundle(static_cast<const uint8_t*>(iblBuffer.bytes), static_cast<uint32_t>(iblBuffer.length));
@@ -237,7 +237,7 @@ static constexpr uint8_t CYLINDER_MATERIAL[] = {
     _sun = EntityManager::get().create();
     LightManager::Builder(LightManager::Type::DIRECTIONAL)
         .color(Color::cct(6500.0f))
-        .intensity(100000.0f)
+        .intensity(60000.0f)
         .direction(math::float3(0.0f, -1.0f, 0.0f))
         .castShadows(true)
         .build(*self.modelView.engine, _sun);

@@ -300,7 +300,7 @@ class MainActivity : FragmentActivity() {
     private fun createIndirectLight() {
         val engine = modelViewer.engine
         val scene = modelViewer.scene
-        val ibl = "default_env"
+        val ibl = "white_furnace"
 
         // Create Light
         assets.readCompressedAsset("envs/$ibl/${ibl}_ibl.ktx").let {

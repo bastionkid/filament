@@ -26,9 +26,12 @@
 #include "VulkanHandles.h"
 #include "VulkanMemory.h"
 #include "VulkanTexture.h"
-#include "memory/ResourceManager.h"
-#include "memory/ResourcePointer.h"
+#include "vulkan/memory/ResourceManager.h"
+#include "vulkan/memory/ResourcePointer.h"
+#include "vulkan/utils/Conversion.h"
+#include "vulkan/utils/Definitions.h"
 
+#include <backend/DriverEnums.h>
 #include <backend/platforms/VulkanPlatform.h>
 
 #include <utils/CString.h>
@@ -43,11 +46,13 @@ using namespace bluevk;
 
 using utils::FixedCapacityVector;
 
+#if defined(__clang__)
 // Vulkan functions often immediately dereference pointers, so it's fine to pass in a pointer
 // to a stack-allocated variable.
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wreturn-stack-address"
 #pragma clang diagnostic ignored "-Wunused-parameter"
+#endif
 
 namespace filament::backend {
 
@@ -248,7 +253,6 @@ Driver* VulkanDriver::create(VulkanPlatform* platform, VulkanContext const& cont
 #if 0
     // this is useful for development, but too verbose even for debug builds
     // For reference on a 64-bits machine in Release mode:
-    //    VulkanSamplerGroup            :  16       few
     //    HwStream                      :  24       few
     //    VulkanFence                   :  32       few
     //    VulkanProgram                 :  32       moderate
@@ -271,7 +275,6 @@ Driver* VulkanDriver::create(VulkanPlatform* platform, VulkanContext const& cont
            << "\nVulkanVertexBuffer: " << sizeof(VulkanVertexBuffer)
            << "\nVulkanVertexBufferInfo: " << sizeof(VulkanVertexBufferInfo)
            << "\nVulkanIndexBuffer: " << sizeof(VulkanIndexBuffer)
-           << "\nVulkanSamplerGroup: " << sizeof(VulkanSamplerGroup)
            << "\nVulkanRenderPrimitive: " << sizeof(VulkanRenderPrimitive)
            << "\nVulkanTexture: " << sizeof(VulkanTexture)
            << "\nVulkanTimerQuery: " << sizeof(VulkanTimerQuery)
@@ -295,6 +298,10 @@ ShaderModel VulkanDriver::getShaderModel() const noexcept {
 #else
     return ShaderModel::DESKTOP;
 #endif
+}
+
+ShaderLanguage VulkanDriver::getShaderLanguage() const noexcept {
+    return ShaderLanguage::SPIRV;
 }
 
 void VulkanDriver::terminate() {
@@ -538,16 +545,16 @@ void VulkanDriver::createTextureViewSwizzleR(Handle<HwTexture> th, Handle<HwText
         backend::TextureSwizzle r, backend::TextureSwizzle g, backend::TextureSwizzle b,
         backend::TextureSwizzle a) {
    TextureSwizzle const swizzleArray[] = {r, g, b, a};
-   VkComponentMapping const swizzle = getSwizzleMap(swizzleArray);
+   VkComponentMapping const swizzle = fvkutils::getSwizzleMap(swizzleArray);
    auto src = resource_ptr<VulkanTexture>::cast(&mResourceManager, srch);
    auto texture = resource_ptr<VulkanTexture>::make(&mResourceManager, th, mPlatform->getDevice(),
            mPlatform->getPhysicalDevice(), mContext, mAllocator, &mCommands, src, swizzle);
    texture.inc();
 }
 
-void VulkanDriver::createTextureExternalImageR(Handle<HwTexture> th,
-        backend::SamplerType target,  backend::TextureFormat format,
-        uint32_t width, uint32_t height, backend::TextureUsage usage, void* externalImage) {
+void VulkanDriver::createTextureExternalImageR(Handle<HwTexture> th, backend::SamplerType target,
+        backend::TextureFormat format, uint32_t width, uint32_t height, backend::TextureUsage usage,
+        void* externalImage) {
     FVK_SYSTRACE_SCOPE();
 
     const auto& metadata = mPlatform->getExternalImageMetadata(externalImage);
@@ -557,7 +564,7 @@ void VulkanDriver::createTextureExternalImageR(Handle<HwTexture> th,
 
     assert_invariant(width == metadata.width);
     assert_invariant(height == metadata.height);
-    assert_invariant(getVkFormat(format) == metadata.format);
+    assert_invariant(fvkutils::getVkFormat(format) == metadata.format);
 
     const auto& data = mPlatform->createExternalImage(externalImage, metadata);
 
@@ -702,6 +709,11 @@ void VulkanDriver::createFenceR(Handle<HwFence> fh, int) {
 }
 
 void VulkanDriver::createSwapChainR(Handle<HwSwapChain> sch, void* nativeWindow, uint64_t flags) {
+    // Running gc() to guard against an edge case where the old swapchains need to have been
+    // destroyed before the new swapchain can be created. Otherwise, we would fail
+    // vkCreateSwapchainKHR with VK_ERROR_NATIVE_WINDOW_IN_USE_KHR.
+    mResourceManager.gc();
+
     if ((flags & backend::SWAP_CHAIN_CONFIG_SRGB_COLORSPACE) != 0 && !isSRGBSwapChainSupported()) {
         FVK_LOGW << "sRGB swapchain requested, but Platform does not support it"
                  << utils::io::endl;
@@ -927,7 +939,7 @@ FenceStatus VulkanDriver::getFenceStatus(Handle<HwFence> fh) {
 // We create all textures using VK_IMAGE_TILING_OPTIMAL, so our definition of "supported" is that
 // the GPU supports the given texture format with non-zero optimal tiling features.
 bool VulkanDriver::isTextureFormatSupported(TextureFormat format) {
-    VkFormat vkformat = getVkFormat(format);
+    VkFormat vkformat = fvkutils::getVkFormat(format);
     if (vkformat == VK_FORMAT_UNDEFINED) {
         return false;
     }
@@ -954,7 +966,7 @@ bool VulkanDriver::isTextureFormatMipmappable(TextureFormat format) {
 }
 
 bool VulkanDriver::isRenderTargetFormatSupported(TextureFormat format) {
-    VkFormat vkformat = getVkFormat(format);
+    VkFormat vkformat = fvkutils::getVkFormat(format);
     if (vkformat == VK_FORMAT_UNDEFINED) {
         return false;
     }
@@ -1012,12 +1024,11 @@ bool VulkanDriver::isDepthStencilResolveSupported() {
 
 bool VulkanDriver::isDepthStencilBlitSupported(TextureFormat format) {
     auto const& formats = mContext.getBlittableDepthStencilFormats();
-    return std::find(formats.begin(), formats.end(), getVkFormat(format)) != formats.end();
+    return std::find(formats.begin(), formats.end(), fvkutils::getVkFormat(format)) !=
+           formats.end();
 }
 
-bool VulkanDriver::isProtectedTexturesSupported() {
-    return false;
-}
+bool VulkanDriver::isProtectedTexturesSupported() { return false; }
 
 bool VulkanDriver::isDepthClampSupported() {
     return mContext.isDepthClampSupported();
@@ -1088,8 +1099,8 @@ FeatureLevel VulkanDriver::getFeatureLevel() {
 
 math::float2 VulkanDriver::getClipSpaceParams() {
     // virtual and physical z-coordinate of clip-space is in [-w, 0]
-    // Note: this is actually never used (see: main.vs), but it's a backend API, so we implement it
-    // properly.
+    // Note: this is actually never used (see: surface_main.vs), but it's a backend API, so we
+    // implement it properly.
     return math::float2{ 1.0f, 0.0f };
 }
 
@@ -1670,25 +1681,25 @@ void VulkanDriver::bindPipeline(PipelineState const& pipelineState) {
     auto rt = mCurrentRenderPass.renderTarget;
 
     VulkanPipelineCache::RasterState const vulkanRasterState{
-        .cullMode = getCullMode(rasterState.culling),
-        .frontFace = getFrontFace(rasterState.inverseFrontFaces),
+        .cullMode = fvkutils::getCullMode(rasterState.culling),
+        .frontFace = fvkutils::getFrontFace(rasterState.inverseFrontFaces),
         .depthBiasEnable = (depthOffset.constant || depthOffset.slope) ? true : false,
         .blendEnable = rasterState.hasBlending(),
         .depthWriteEnable = rasterState.depthWrite,
         .alphaToCoverageEnable = rasterState.alphaToCoverage,
-        .srcColorBlendFactor = getBlendFactor(rasterState.blendFunctionSrcRGB),
-        .dstColorBlendFactor = getBlendFactor(rasterState.blendFunctionDstRGB),
-        .srcAlphaBlendFactor = getBlendFactor(rasterState.blendFunctionSrcAlpha),
-        .dstAlphaBlendFactor = getBlendFactor(rasterState.blendFunctionDstAlpha),
+        .srcColorBlendFactor = fvkutils::getBlendFactor(rasterState.blendFunctionSrcRGB),
+        .dstColorBlendFactor = fvkutils::getBlendFactor(rasterState.blendFunctionDstRGB),
+        .srcAlphaBlendFactor = fvkutils::getBlendFactor(rasterState.blendFunctionSrcAlpha),
+        .dstAlphaBlendFactor = fvkutils::getBlendFactor(rasterState.blendFunctionDstAlpha),
         .colorWriteMask = (VkColorComponentFlags) (rasterState.colorWrite ? 0xf : 0x0),
         .rasterizationSamples = rt->getSamples(),
         .depthClamp = rasterState.depthClamp,
         .colorTargetCount = rt->getColorTargetCount(mCurrentRenderPass),
         .colorBlendOp = rasterState.blendEquationRGB,
-        .alphaBlendOp =  rasterState.blendEquationAlpha,
+        .alphaBlendOp = rasterState.blendEquationAlpha,
         .depthCompareOp = rasterState.depthFunc,
         .depthBiasConstantFactor = depthOffset.constant,
-        .depthBiasSlopeFactor = depthOffset.slope
+        .depthBiasSlopeFactor = depthOffset.slope,
     };
 
     // unfortunately in Vulkan the topology is per pipeline
@@ -1725,7 +1736,7 @@ void VulkanDriver::bindPipeline(PipelineState const& pipelineState) {
     mBoundPipeline = {
         .program = program,
         .pipelineLayout = pipelineLayout,
-        .descriptorSetMask = DescriptorSetMask(descriptorSetMaskTable[layoutCount]),
+        .descriptorSetMask = fvkutils::DescriptorSetMask(descriptorSetMaskTable[layoutCount]),
     };
 
     mPipelineCache.bindLayout(pipelineLayout);
@@ -1874,4 +1885,6 @@ template class ConcreteDispatcher<VulkanDriver>;
 
 } // namespace filament::backend
 
+#if defined(__clang__)
 #pragma clang diagnostic pop
+#endif

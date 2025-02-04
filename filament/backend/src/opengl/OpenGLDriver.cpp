@@ -75,9 +75,11 @@
 #include <emscripten.h>
 #endif
 
+#if defined(__clang__)
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunknown-pragmas"
 #pragma ide diagnostic ignored "OCUnusedGlobalDeclarationInspection"
+#endif
 
 // We can only support this feature on OpenGL ES 3.1+
 // Support is currently disabled as we don't need it
@@ -347,6 +349,10 @@ void OpenGLDriver::terminate() {
 
 ShaderModel OpenGLDriver::getShaderModel() const noexcept {
     return mContext.getShaderModel();
+}
+
+ShaderLanguage OpenGLDriver::getShaderLanguage() const noexcept {
+    return mContext.isES2() ? ShaderLanguage::ESSL1 : ShaderLanguage::ESSL3;
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -4090,4 +4096,6 @@ template class ConcreteDispatcher<OpenGLDriver>;
 
 } // namespace filament::backend
 
+#if defined(__clang__)
 #pragma clang diagnostic pop
+#endif

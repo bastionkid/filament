@@ -457,7 +457,7 @@ class MainActivity : FragmentActivity() {
     }
 
     private fun addTransparentTexture() {
-        // Define vertex points. Ensure that the width to height ratio matched that os the asset.
+        // Define vertex points. Ensure that the width to height ratio matched that of the asset.
         // Better way to identify the aspect ratio is via first loading the asset into bitmap and
         // then get width & height
         val vertexPoints = floatArrayOf(
@@ -488,22 +488,22 @@ class MainActivity : FragmentActivity() {
             .put(uvPoints)
             .flip()
 
-        triangleVertexBuffer = VertexBuffer.Builder()
+        transparentVertexBuffer = VertexBuffer.Builder()
             .bufferCount(2)
             .vertexCount(vertexCount)
             .attribute(VertexAttribute.POSITION, 0, AttributeType.FLOAT3, 0, VERTEX_POSITION_SIZE)
             .attribute(VertexAttribute.UV0, 1, AttributeType.FLOAT2, 0, UV_SIZE)
             .build(modelViewer.engine)
 
-        triangleVertexBuffer.setBufferAt(modelViewer.engine, 0, vertexData)
-        triangleVertexBuffer.setBufferAt(modelViewer.engine, 1, uvData)
+        transparentVertexBuffer.setBufferAt(modelViewer.engine, 0, vertexData)
+        transparentVertexBuffer.setBufferAt(modelViewer.engine, 1, uvData)
 
         // Define vertex indices which represents triangles
         val indices = shortArrayOf(
             0, 1, 2,
             2, 1, 3,
         )
-        triangleIndexBuffer = modelViewer.engine.createIndexBuffer(indices)
+        transparentIndexBuffer = modelViewer.engine.createIndexBuffer(indices)
 
         // Load material
         assets.readCompressedAsset("materials/transparent_image.filamat").also {
@@ -521,7 +521,7 @@ class MainActivity : FragmentActivity() {
 
         RenderableManager.Builder(1)
             .boundingBox(Box(0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 0.01f))
-            .geometry(0, PrimitiveType.TRIANGLES, triangleVertexBuffer, triangleIndexBuffer, 0, triangleIndexBuffer.indexCount)
+            .geometry(0, PrimitiveType.TRIANGLES, transparentVertexBuffer, transparentIndexBuffer, 0, transparentIndexBuffer.indexCount)
             .material(0, materialInstance)
             .build(modelViewer.engine, transparentEntity)
 

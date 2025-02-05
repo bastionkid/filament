@@ -581,7 +581,7 @@ static constexpr uint8_t TRANSPARENT_IMAGE_MATERIAL[] = {
         .build(*_modelView.engine);
     
     MaterialInstance* materialInstance = material->createInstance();
-    materialInstance->setParameter("texture", [self getPixelData:@"text_yorker"], TextureSampler());
+    materialInstance->setParameter("texture", [self getPixelData:@"text_yorker" :_modelView.engine], TextureSampler());
     
     Entity renderable = EntityManager::get().create();
     
@@ -594,7 +594,7 @@ static constexpr uint8_t TRANSPARENT_IMAGE_MATERIAL[] = {
     _modelView.scene->addEntity(renderable);
 }
 
-- (Texture*)getPixelData:(NSString*)imageName {
+- (Texture*)getPixelData:(NSString*)imageName :(filament::Engine*)engine {
     // Load UIImage from asset bundle
     UIImage* image = [UIImage imageNamed:imageName];
     
@@ -635,7 +635,7 @@ static constexpr uint8_t TRANSPARENT_IMAGE_MATERIAL[] = {
         .height((uint32_t)height)
         .levels(1)
         .format(Texture::InternalFormat::RGBA8) // RGBA for transparency
-        .build(*_modelView.engine);
+        .build(*engine);
     
     // Create PixelBufferDescriptor
     Texture::PixelBufferDescriptor pixelBuffer([rawData bytes],                          // Pointer to the raw pixel data
@@ -645,7 +645,7 @@ static constexpr uint8_t TRANSPARENT_IMAGE_MATERIAL[] = {
                                                [](void* buffer, size_t, void*) { });
     
     // Upload texture data
-    texture->setImage(*_modelView.engine, 0, std::move(pixelBuffer));
+    texture->setImage(*engine, 0, std::move(pixelBuffer));
     
     return texture;
 }

@@ -49,6 +49,11 @@ static constexpr uint8_t CYLINDER_MATERIAL[] = {
 #include "cylinder.inc"
 };
 
+// This file is compiled via the matc tool. See the "Run Script" build phase.
+static constexpr uint8_t TRANSPARENT_IMAGE_MATERIAL[] = {
+#include "transparent_image.inc"
+};
+
 @interface FILViewController ()
 
 - (void)startDisplayLink;
@@ -81,7 +86,7 @@ static constexpr uint8_t CYLINDER_MATERIAL[] = {
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-
+    
     // Observe lifecycle notifications to prevent us from rendering in the background.
     [NSNotificationCenter.defaultCenter addObserver:self
                                            selector:@selector(appWillResignActive:)
@@ -91,7 +96,7 @@ static constexpr uint8_t CYLINDER_MATERIAL[] = {
                                            selector:@selector(appDidBecomeActive:)
                                                name:UIApplicationDidBecomeActiveNotification
                                              object:nil];
-
+    
     // on mobile, better use lower quality color buffer
     RenderQuality renderQuality = RenderQuality();
     renderQuality.hdrColorBuffer = QualityLevel::MEDIUM;
@@ -122,7 +127,7 @@ static constexpr uint8_t CYLINDER_MATERIAL[] = {
     _material = Material::Builder()
         .package((void*) CYLINDER_MATERIAL, sizeof(CYLINDER_MATERIAL))
         .build(*_modelView.engine);
-
+    
     _materialInstance = _material->createInstance();
     _materialInstance->setParameter("baseColor", RgbaType::sRGB, {1, 0, 0, 1.0f});
     
@@ -205,7 +210,8 @@ static constexpr uint8_t CYLINDER_MATERIAL[] = {
     [self.modelView hideEntity:@"ball_6"];
     
 //    [self addTriangle];
-    [self addCylinder];
+//    [self addCylinder];
+    [self addTransparentTexture];
 }
 
 - (void)createLights {
@@ -483,6 +489,165 @@ static constexpr uint8_t CYLINDER_MATERIAL[] = {
         .build(*_modelView.engine, renderable);
     
     _modelView.scene->addEntity(renderable);
+}
+
+/**
+ We use quad (made up of 2 triangles having one common edge) to show transparent texture
+ */
+- (void)addTransparentTexture {
+    int vertexCount = 4;
+    int floatSize = 4;
+    int vertexSize = 3 * floatSize;
+    
+    int uvCount = 4; // 4 pairs of (x, y) co-ordinates each for 2D texture
+    int uvSize = 2 * floatSize;
+    
+    int shortSize = 2;
+    int indexCount = 6;
+    int indexSize = indexCount * shortSize;
+    
+    // Define vertex points. Ensure that the width to height ratio matched that of the asset.
+    // Better way to identify the aspect ratio is via using UIImage.CGImage's
+    // CGImageGetWidth & CGImageGetWidth to get width & height
+    void* vertexData = malloc(vertexCount * vertexSize);
+    float* vertices = static_cast<float*>(vertexData);
+    vertices[0] = -1.0f;
+    vertices[1] = 0.683f;
+    vertices[2] = 0;
+    vertices[3] = -1.0f;
+    vertices[4] = 0;
+    vertices[5] = 0;
+    vertices[6] = 1;
+    vertices[7] = 0.683f;
+    vertices[8] = 0;
+    vertices[9] = 1;
+    vertices[10] = 0;
+    vertices[11] = 0;
+    
+    // This will be used for texture mapping. This follows 2d mapping as we're going to
+    // use 2d texture.
+    // Note: Ensure that the uvPoints ordering matches vertexPoints ordering
+    void* uvData = malloc(uvCount * uvSize);
+    float* uvs = static_cast<float*>(uvData);
+    uvs[0] = 0;
+    uvs[1] = 1;
+    uvs[2] = 0;
+    uvs[3] = 0;
+    uvs[4] = 1;
+    uvs[5] = 1;
+    uvs[6] = 1;
+    uvs[7] = 0;
+    
+    VertexBuffer* vertexBuffer = VertexBuffer::Builder()
+        .vertexCount(vertexCount)
+        .bufferCount(2)
+        .attribute(VertexAttribute::POSITION, 0, VertexBuffer::AttributeType::FLOAT3, 0, vertexSize)
+        .attribute(VertexAttribute::UV0, 1, VertexBuffer::AttributeType::FLOAT2, 0, uvSize)
+        .build(*_modelView.engine);
+    
+    vertexBuffer->setBufferAt(*_modelView.engine, 0, VertexBuffer::BufferDescriptor(vertexData, vertexCount * vertexSize, [](void* buffer, size_t size, void* user) {
+        // release buffer
+        free(buffer);
+    }));
+    
+    vertexBuffer->setBufferAt(*_modelView.engine, 1, VertexBuffer::BufferDescriptor(uvData, uvCount * uvSize, [](void* buffer, size_t size, void* user) {
+        // release buffer
+        free(buffer);
+    }));
+    
+    // Create indexData
+    void* indexData = malloc(indexSize);
+    short* indices = static_cast<short*>(indexData);
+    indices[0] = 0;
+    indices[1] = 1;
+    indices[2] = 2;
+    indices[3] = 2;
+    indices[4] = 1;
+    indices[5] = 3;
+    
+    IndexBuffer* indexBuffer = IndexBuffer::Builder()
+        .indexCount(indexCount)
+        .bufferType(IndexBuffer::IndexType::USHORT)
+        .build(*_modelView.engine);
+    
+    indexBuffer->setBuffer(*_modelView.engine, IndexBuffer::BufferDescriptor(indexData, indexSize, [](void* buffer, size_t size, void* user) {
+        // release buffer
+        free(buffer);
+    }));
+    
+    // Initialize quad rendering properties
+    Material* material = Material::Builder()
+        .package((void*) TRANSPARENT_IMAGE_MATERIAL, sizeof(TRANSPARENT_IMAGE_MATERIAL))
+        .build(*_modelView.engine);
+    
+    MaterialInstance* materialInstance = material->createInstance();
+    materialInstance->setParameter("texture", [self getPixelData:@"text_yorker"], TextureSampler());
+    
+    Entity renderable = EntityManager::get().create();
+    
+    RenderableManager::Builder(1)
+        .boundingBox({{ 0, 0, 0 }, { 1, 1, 0.01 }})
+        .material(0, materialInstance)
+        .geometry(0, RenderableManager::PrimitiveType::TRIANGLES, vertexBuffer, indexBuffer, 0, indexCount)
+        .build(*_modelView.engine, renderable);
+    
+    _modelView.scene->addEntity(renderable);
+}
+
+- (Texture*)getPixelData:(NSString*)imageName {
+    // Load UIImage from asset bundle
+    UIImage* image = [UIImage imageNamed:imageName];
+    
+    // Get image dimensions and pixel data
+    CGImageRef cgImage = image.CGImage;
+    size_t width = CGImageGetWidth(cgImage);
+    size_t height = CGImageGetHeight(cgImage);
+    size_t bitsPerComponent = CGImageGetBitsPerComponent(cgImage);
+    size_t bytesPerRow = CGImageGetBytesPerRow(cgImage);
+    size_t bufferLength = height * bytesPerRow;
+    CGColorSpaceRef colorSpace = CGImageGetColorSpace(cgImage);
+    
+    // Use kCGImageAlphaPremultipliedLast for supported pixel format
+    CGBitmapInfo bitmapInfo = kCGImageAlphaPremultipliedLast | kCGBitmapByteOrder32Big;
+    
+    // Allocate memory for raw pixel data
+    NSMutableData *rawData = [NSMutableData dataWithLength:bufferLength];
+    
+    // Create a context to draw the image into the raw pixel data
+    CGContextRef context = CGBitmapContextCreate(rawData.mutableBytes,
+                                                 width,
+                                                 height,
+                                                 bitsPerComponent,
+                                                 bytesPerRow,
+                                                 colorSpace,
+                                                 bitmapInfo);
+    
+    // Draw the image into the context
+    CGContextDrawImage(context, CGRectMake(0, 0, width, height), cgImage);
+    
+    // Release resources
+    CGContextRelease(context);
+    CGColorSpaceRelease(colorSpace);
+    
+    // Create Filament texture
+    Texture* texture = Texture::Builder()
+        .width((uint32_t)width)
+        .height((uint32_t)height)
+        .levels(1)
+        .format(Texture::InternalFormat::RGBA8) // RGBA for transparency
+        .build(*_modelView.engine);
+    
+    // Create PixelBufferDescriptor
+    Texture::PixelBufferDescriptor pixelBuffer([rawData bytes],                          // Pointer to the raw pixel data
+                                               [rawData length],                         // Size of the pixel data
+                                               Texture::Format::RGBA,
+                                               Texture::Type::UBYTE,
+                                               [](void* buffer, size_t, void*) { });
+    
+    // Upload texture data
+    texture->setImage(*_modelView.engine, 0, std::move(pixelBuffer));
+    
+    return texture;
 }
 
 @end

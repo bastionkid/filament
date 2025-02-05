@@ -12,6 +12,7 @@
 		285A74424AF5E3014363F8E6 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 14BA4B8B6A697847DA9934D2 /* Main.storyboard */; };
 		431100702D535EFF00FDD369 /* white_furnace_ibl.ktx in Resources */ = {isa = PBXBuildFile; fileRef = 4311006E2D535EFF00FDD369 /* white_furnace_ibl.ktx */; };
 		431100712D535EFF00FDD369 /* white_furnace_skybox.ktx in Resources */ = {isa = PBXBuildFile; fileRef = 4311006F2D535EFF00FDD369 /* white_furnace_skybox.ktx */; };
+		431100732D538B2600FDD369 /* transparent_image.mat in Resources */ = {isa = PBXBuildFile; fileRef = 431100722D538B2600FDD369 /* transparent_image.mat */; };
 		4332F0792D507901002DE724 /* Vertex.mm in Sources */ = {isa = PBXBuildFile; fileRef = 4332F0782D5078FF002DE724 /* Vertex.mm */; };
 		4332F07C2D507A28002DE724 /* Quad.mm in Sources */ = {isa = PBXBuildFile; fileRef = 4332F07B2D507A27002DE724 /* Quad.mm */; };
 		4332F07F2D507DED002DE724 /* QuadraticBezier.mm in Sources */ = {isa = PBXBuildFile; fileRef = 4332F07E2D507DEB002DE724 /* QuadraticBezier.mm */; };
@@ -35,6 +36,7 @@
 		3B5A2C1598614ED63098A783 /* FILViewController.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = FILViewController.mm; sourceTree = "<group>"; };
 		4311006E2D535EFF00FDD369 /* white_furnace_ibl.ktx */ = {isa = PBXFileReference; lastKnownFileType = file; path = white_furnace_ibl.ktx; sourceTree = "<group>"; };
 		4311006F2D535EFF00FDD369 /* white_furnace_skybox.ktx */ = {isa = PBXFileReference; lastKnownFileType = file; path = white_furnace_skybox.ktx; sourceTree = "<group>"; };
+		431100722D538B2600FDD369 /* transparent_image.mat */ = {isa = PBXFileReference; lastKnownFileType = text; path = transparent_image.mat; sourceTree = "<group>"; };
 		4332F0772D5078B7002DE724 /* Vertex.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Vertex.h; sourceTree = "<group>"; };
 		4332F0782D5078FF002DE724 /* Vertex.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = Vertex.mm; sourceTree = "<group>"; };
 		4332F07A2D507A22002DE724 /* Quad.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Quad.h; sourceTree = "<group>"; };
@@ -103,6 +105,7 @@
 		4332F0882D50BBEA002DE724 /* Materials */ = {
 			isa = PBXGroup;
 			children = (
+				431100722D538B2600FDD369 /* transparent_image.mat */,
 				4332F08A2D50C4C3002DE724 /* bakedColor.mat */,
 				4332F0892D50BC29002DE724 /* cylinder.mat */,
 			);
@@ -152,6 +155,7 @@
 			buildPhases = (
 				4332F0872D50BB06002DE724 /* Build Material (Cylinder) */,
 				4332F08B2D50C4E2002DE724 /* Build Material (Baked Color) */,
+				431100742D538B6A00FDD369 /* Build Material (Transparent Image) */,
 				0B375996CE4EBC4A5B258C27 /* Build Resources */,
 				C8F38C978C83CD5335A21F72 /* Sources */,
 				7D3B1B99EEAFB6F53ECBAA5A /* Resources */,
@@ -198,6 +202,7 @@
 			files = (
 				45F28F70A616F4B5C67FEC66 /* Assets.xcassets in Resources */,
 				58EBAAC97B7EA63E102CDCDB /* BusterDrone in Resources */,
+				431100732D538B2600FDD369 /* transparent_image.mat in Resources */,
 				8A03666082048B85BDE1C1CE /* LaunchScreen.storyboard in Resources */,
 				285A74424AF5E3014363F8E6 /* Main.storyboard in Resources */,
 				00101E55E74547D6C2FD8C03 /* default_env_ibl.ktx in Resources */,
@@ -230,6 +235,24 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "#/usr/bin/env/bash\n\nset -e\n\n# Compile resources.\n\n# The gltf-viewer app requires two resources:\n# 1. The IBL image\n# 2. The skybox image\n\nHOST_TOOLS_PATH=\"${HOST_TOOLS_PATH:-../../../out/release/filament/bin}\"\n\ncmgen_path=`find ${HOST_TOOLS_PATH} -name cmgen -type f | head -n 1`\n\n# Ensure that the required tools are present in the out/ directory.\n# These can be built by running ./build.sh -p desktop -i release at Filament's root directory.\n\nif [[ ! -e \"${cmgen_path}\" ]]; then\n  echo \"No cmgen binary could be found in ${HOST_TOOLS_PATH}.\"\n  echo \"Ensure Filament has been built/installed before building this app.\"\n  exit 1\nfi\n\n# cmgen consumes an HDR environment map and generates two mipmapped KTX files (IBL and skybox)\n\"${cmgen_path}\" \\\n    --quiet \\\n    --deploy=\"${PROJECT_DIR}/generated/default_env\" \\\n    --format=ktx --size=256 --extract-blur=0.1 \\\n    \"${PROJECT_DIR}/../../../third_party/environments/lightroom_14b.hdr\"\n";
+		};
+		431100742D538B6A00FDD369 /* Build Material (Transparent Image) */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Build Material (Transparent Image)";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Compile transparent_image material.\n\nHOST_TOOLS_PATH=\"${HOST_TOOLS_PATH:-../../../out/release/filament/bin}\"\nmatc_path=`find ${HOST_TOOLS_PATH} -name matc -type f | head -n 1`\n\nif [[ ! -e \"${matc_path}\" ]]; then\n  echo \"No matc binary could be found in ${HOST_TOOLS_PATH}.\"\n  echo \"Ensure Filament has been built/installed before building this app.\"\n  exit 1\nfi\n\nmkdir -p \"${PROJECT_DIR}/generated/\"\n\"${matc_path}\" \\\n    --api all \\\n    -f header \\\n    -o \"${PROJECT_DIR}/generated/transparent_image.inc\" \\\n    \"${PROJECT_DIR}/Materials/transparent_image.mat\"\n\n# FilamentView.mm includes transparent_image.inc, so touch it to force Xcode to\n# recompile it.\ntouch \"${PROJECT_DIR}/gltf-viewer/FILViewController.mm\"\n";
 		};
 		4332F0872D50BB06002DE724 /* Build Material (Cylinder) */ = {
 			isa = PBXShellScriptBuildPhase;

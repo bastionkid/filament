@@ -229,7 +229,7 @@ static constexpr uint8_t CYLINDER_MATERIAL[] = {
     _indirectLight = IndirectLight::Builder()
         .reflections(_iblTexture)
         .irradiance(3, harmonics)
-        .intensity(30000.0f)
+        .intensity(60000.0f)
         .build(*self.modelView.engine);
     self.modelView.scene->setIndirectLight(_indirectLight);
     

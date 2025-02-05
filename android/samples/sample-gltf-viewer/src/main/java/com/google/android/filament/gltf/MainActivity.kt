@@ -305,7 +305,7 @@ class MainActivity : FragmentActivity() {
         // Create Light
         assets.readCompressedAsset("envs/$ibl/${ibl}_ibl.ktx").let {
             scene.indirectLight = KTX1Loader.createIndirectLight(engine, it)
-            scene.indirectLight!!.intensity = 30_000.0f
+            scene.indirectLight!!.intensity = 60_000.0f
         }
 
         // Create Skybox

@@ -47,6 +47,7 @@ import com.google.android.filament.gltf.BufferUtils.VERTEX_POSITION_WITH_COLOR_S
 import com.google.android.filament.utils.KTX1Loader
 import com.google.android.filament.utils.ModelViewer
 import com.google.android.filament.utils.Utils
+import org.json.JSONObject
 import java.nio.Buffer
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -214,10 +215,73 @@ class MainActivity : FragmentActivity() {
         btnToggleBallDots.setOnClickListener {
             modelViewer.showEntity("bowling_accuracy_target")
 
+            val bowlingAccuracyData = JSONObject(
+                """
+                    {
+                        "target": {
+                          "x": 1.35,
+                          "y": 2.3
+                        },
+                        "balls": [
+                          {
+                            "x": 1.15,
+                            "y": 1.85
+                          },
+                          {
+                            "x": 1.45,
+                            "y": 2.25
+                          },
+                          {
+                            "x": 0.78,
+                            "y": 3.86
+                          },
+                          {
+                            "x": 0.63,
+                            "y": 4.67
+                          },
+                          {
+                            "x": 1.32,
+                            "y": 3.44
+                          },
+                          {
+                            "x": 1.00,
+                            "y": 5.45
+                          }
+                        ]
+                    }
+                """.trimIndent()
+            )
+            val target = bowlingAccuracyData.getJSONObject("target")
+            val balls = bowlingAccuracyData.getJSONArray("balls")
+
+            modelViewer.asset?.getFirstEntityByName("bowling_accuracy_target")?.let { entity ->
+                if (entity == 0) return@let
+
+                val (x, z) = translatedCoOrdinates(
+                    x = target.getDouble("x").toFloat(),
+                    y = target.getDouble("y").toFloat(),
+                )
+
+                modelViewer.engine.transformManager.translateEntity(
+                    x = x,
+                    y = 0.025f,
+                    z = z,
+                    entity = entity,
+                )
+            }
+
             // show and randomly place first 6 ball dots
             repeat(6) { index ->
                 modelViewer.showEntity("ball_${index + 1}")
-                placeBallDot("ball_${index + 1}", getBallX(), 0.025f, getBallZ())
+
+                val ball = balls.getJSONObject(index)
+
+                val (x, z) = translatedCoOrdinates(
+                    x = ball.getDouble("x").toFloat(),
+                    y = ball.getDouble("y").toFloat(),
+                )
+
+                placeBallDot("ball_${index + 1}", x, 0.025f, z)
             }
         }
     }
@@ -234,6 +298,14 @@ class MainActivity : FragmentActivity() {
      */
     private fun getBallZ(): Float {
         return -(10 * Math.random().toFloat())
+    }
+
+    /**
+     * translate the (x, y) co-ordinates outputted by the backend models to the gltf coordinate system.
+     * Origin of the gltf has an offset of (1.525, 10.06) from the origin of the backend models.
+     */
+    private fun translatedCoOrdinates(x: Float, y: Float): Pair<Float, Float> {
+        return Pair(x - 1.525f, y - 10.06f)
     }
 
     private fun createDefaultRenderables() {

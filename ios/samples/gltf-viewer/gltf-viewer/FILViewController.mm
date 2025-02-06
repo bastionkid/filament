@@ -202,16 +202,15 @@ static constexpr uint8_t TRANSPARENT_IMAGE_MATERIAL[] = {
     [self.modelView hideEntity:@"pitch_overlay"];
     [self.modelView hideEntity:@"bowling_accuracy_target"];
     
-    [self.modelView hideEntity:@"ball_1"];
-    [self.modelView hideEntity:@"ball_2"];
-    [self.modelView hideEntity:@"ball_3"];
-    [self.modelView hideEntity:@"ball_4"];
-    [self.modelView hideEntity:@"ball_5"];
-    [self.modelView hideEntity:@"ball_6"];
+    // hide all the ball dots
+    for (int i = 1; i <= 18; i++) {
+        NSString* entityName = [NSString stringWithFormat:@"ball_%d", i];
+        [self.modelView hideEntity:entityName];
+    }
     
 //    [self addTriangle];
 //    [self addCylinder];
-    [self addTransparentTexture];
+//    [self addTransparentTexture];
 }
 
 - (void)createLights {
@@ -287,19 +286,14 @@ static constexpr uint8_t TRANSPARENT_IMAGE_MATERIAL[] = {
 
 - (IBAction)onToggleBallDotsClick:(id)sender {
     [self.modelView showEntity:@"bowling_accuracy_target"];
-    [self.modelView showEntity:@"ball_1"];
-    [self.modelView showEntity:@"ball_2"];
-    [self.modelView showEntity:@"ball_3"];
-    [self.modelView showEntity:@"ball_4"];
-    [self.modelView showEntity:@"ball_5"];
-    [self.modelView showEntity:@"ball_6"];
     
-    [self.modelView translateEntity:[self getBallX] :0.025f :[self getBallZ] :@"ball_1"];
-    [self.modelView translateEntity:[self getBallX] :0.025f :[self getBallZ] :@"ball_2"];
-    [self.modelView translateEntity:[self getBallX] :0.025f :[self getBallZ] :@"ball_3"];
-    [self.modelView translateEntity:[self getBallX] :0.025f :[self getBallZ] :@"ball_4"];
-    [self.modelView translateEntity:[self getBallX] :0.025f :[self getBallZ] :@"ball_5"];
-    [self.modelView translateEntity:[self getBallX] :0.025f :[self getBallZ] :@"ball_6"];
+    
+    // show and randomly place first 6 ball dots
+    for (int i = 1; i <= 6; i++) {
+        NSString* entityName = [NSString stringWithFormat:@"ball_%d", i];
+        [self.modelView showEntity:entityName];
+        [self.modelView translateEntity:[self getBallX] :0.025f :[self getBallZ] :entityName];
+    }
 }
 
 - (CGFloat)getBallX {

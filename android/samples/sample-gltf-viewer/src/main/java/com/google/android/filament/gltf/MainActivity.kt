@@ -213,19 +213,12 @@ class MainActivity : FragmentActivity() {
 
         btnToggleBallDots.setOnClickListener {
             modelViewer.showEntity("bowling_accuracy_target")
-            modelViewer.showEntity("ball_1")
-            modelViewer.showEntity("ball_2")
-            modelViewer.showEntity("ball_3")
-            modelViewer.showEntity("ball_4")
-            modelViewer.showEntity("ball_5")
-            modelViewer.showEntity("ball_6")
 
-            placeBallDot("ball_1", getBallX(), 0.025f, getBallZ())
-            placeBallDot("ball_2", getBallX(), 0.025f, getBallZ())
-            placeBallDot("ball_3", getBallX(), 0.025f, getBallZ())
-            placeBallDot("ball_4", getBallX(), 0.025f, getBallZ())
-            placeBallDot("ball_5", getBallX(), 0.025f, getBallZ())
-            placeBallDot("ball_6", getBallX(), 0.025f, getBallZ())
+            // show and randomly place first 6 ball dots
+            repeat(6) { index ->
+                modelViewer.showEntity("ball_${index + 1}")
+                placeBallDot("ball_${index + 1}", getBallX(), 0.025f, getBallZ())
+            }
         }
     }
 
@@ -278,19 +271,16 @@ class MainActivity : FragmentActivity() {
 //                )
 //            )
 //        )
-        addCylinder()
+//        addCylinder()
 
         modelViewer.showEntity("pitch")
         modelViewer.hideEntity("pitch_overlay")
         modelViewer.hideEntity("bowling_accuracy_target")
 
         // hide all the ball dots
-        modelViewer.hideEntity("ball_1")
-        modelViewer.hideEntity("ball_2")
-        modelViewer.hideEntity("ball_3")
-        modelViewer.hideEntity("ball_4")
-        modelViewer.hideEntity("ball_5")
-        modelViewer.hideEntity("ball_6")
+        repeat(18) { index ->
+            modelViewer.hideEntity("ball_${index + 1}")
+        }
     }
 
     private fun updateRootTransform() {

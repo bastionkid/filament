@@ -18,7 +18,6 @@ package com.google.android.filament.utils
 
 import android.view.MotionEvent
 import android.view.View
-import androidx.annotation.FloatRange
 import kotlin.math.max
 import kotlin.math.min
 
@@ -61,7 +60,7 @@ class GestureDetector(private val view: View, private val manipulator: Manipulat
     private val kGestureConfidenceCount = 2
     private val kPanConfidenceDistance = 4 // Distance in terms of screen pixel locations
     private val kZoomConfidenceDistance = 10 // Distance in terms of screen pixel locations
-    private val kZoomRange = FloatRange(from = -10.0 / kZoomSpeed, to = 4.0 / kZoomSpeed) // 5.0 is derived from changing kZoomSpeed and verifying the relative zoom in/out movement
+    private val kZoomRange = (-10.0 / kZoomSpeed)..(4.0 / kZoomSpeed) // 5.0 is derived from changing kZoomSpeed and verifying the relative zoom in/out movement
     private var currentZoomDelta = 0.0
 
     fun onTouchEvent(event: MotionEvent) {
@@ -85,18 +84,18 @@ class GestureDetector(private val view: View, private val manipulator: Manipulat
 
                     if (scrollDelta < 0) {
                         // ensure that the currentZoomDelta is clamped to kZoomRange.from in case of zoom in
-                        if (currentZoomDelta > kZoomRange.from) {
-                            currentZoomDelta = max(kZoomRange.from, currentZoomDelta + scrollDelta)
+                        if (currentZoomDelta > kZoomRange.start) {
+                            currentZoomDelta = max(kZoomRange.start, currentZoomDelta + scrollDelta)
                         }
                     } else {
                         // ensure that the currentZoomDelta is clamped to kZoomRange.to in case of zoom out
-                        if (currentZoomDelta < kZoomRange.to) {
-                            currentZoomDelta = min(kZoomRange.to, currentZoomDelta + scrollDelta)
+                        if (currentZoomDelta < kZoomRange.endInclusive) {
+                            currentZoomDelta = min(kZoomRange.endInclusive, currentZoomDelta + scrollDelta)
                         }
                     }
 
                     // Here we limit the zoom in & out range
-                    if (currentZoomDelta > kZoomRange.from && currentZoomDelta < kZoomRange.to) {
+                    if (currentZoomDelta > kZoomRange.start && currentZoomDelta < kZoomRange.endInclusive) {
                         manipulator.scroll(touch.x, touch.y, scrollDelta)
                         previousTouch = touch
                     } else {

@@ -1,4 +1,4 @@
-package com.google.android.filament.gltf
+package com.google.android.filament.gltf.utils
 
 import android.content.res.Resources
 import android.graphics.BitmapFactory

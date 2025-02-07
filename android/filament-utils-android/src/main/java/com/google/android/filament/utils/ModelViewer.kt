@@ -63,7 +63,7 @@ const val kEyeYMinThreshold = 1.5
 /**
  * Helps render glTF models into a [SurfaceView] or [TextureView] with an orbit controller.
  *
- * `ModelViewer` owns a Filament engine, renderer, swapchain, view, and scene. It allows clients
+ * `ModelViewer` owns a Filament engine, renderer, swapChain, view, and scene. It allows clients
  * to access these objects via read-only properties. The viewer can display only one glTF scene
  * at a time, which can be scaled and translated into the viewing frustum by calling
  * [clearRootTransform]. All ECS entities can be accessed and modified via the [asset] property.
@@ -84,10 +84,7 @@ const val kEyeYMinThreshold = 1.5
  *
  * See `sample-gltf-viewer` for a usage example.
  */
-class ModelViewer(
-    val engine: Engine,
-    private val uiHelper: UiHelper
-) {
+class ModelViewer(val engine: Engine, private val uiHelper: UiHelper) {
     var asset: FilamentAsset? = null
         private set
 
@@ -97,8 +94,6 @@ class ModelViewer(
     @Suppress("unused")
     val progress
         get() = resourceLoader.asyncGetLoadProgress()
-
-    var normalizeSkinningWeights = true
 
     var cameraFocalLength = kFocalLength
         set(value) {
@@ -120,7 +115,10 @@ class ModelViewer(
 
     val scene: Scene by lazy { engine.createScene() }
     val view: View by lazy { engine.createView() }
-    val camera: Camera by lazy { engine.createCamera(engine.entityManager.create()).apply { setExposure(kAperture, kShutterSpeed, kSensitivity) } }
+    private val camera: Camera by lazy {
+        engine.createCamera(engine.entityManager.create())
+            .apply { setExposure(kAperture, kShutterSpeed, kSensitivity) }
+    }
     val renderer: Renderer by lazy { engine.createRenderer() }
     @get:Entity
     val light: Int by lazy { EntityManager.get().create() }
@@ -148,7 +146,7 @@ class ModelViewer(
 
         materialProvider = UbershaderProvider(engine)
         assetLoader = AssetLoader(engine, materialProvider, EntityManager.get())
-        resourceLoader = ResourceLoader(engine, normalizeSkinningWeights)
+        resourceLoader = ResourceLoader(engine, true)
 
         // Always add a direct light source since it is required for shadowing.
         // We highly recommend adding an indirect light as well.
@@ -225,6 +223,7 @@ class ModelViewer(
      *
      * The given callback is triggered from a worker thread for each requested resource.
      */
+    @Suppress("unused")
     fun loadModelGltfAsync(buffer: Buffer, callback: (String) -> Buffer) {
         destroyModel()
         asset = assetLoader.createAsset(buffer)
@@ -261,7 +260,7 @@ class ModelViewer(
     /**
      * Frees all entities associated with the most recently-loaded model.
      */
-    fun destroyModel() {
+    private fun destroyModel() {
         fetchResourcesJob?.cancel()
         resourceLoader.asyncCancelLoad()
         resourceLoader.evictResourceData()
@@ -314,26 +313,30 @@ class ModelViewer(
         view.addOnAttachStateChangeListener(object : android.view.View.OnAttachStateChangeListener {
             override fun onViewAttachedToWindow(v: android.view.View) {}
             override fun onViewDetachedFromWindow(v: android.view.View) {
-                uiHelper.detach()
-
-                destroyModel()
-                assetLoader.destroy()
-                materialProvider.destroyMaterials()
-                materialProvider.destroy()
-                resourceLoader.destroy()
-
-                engine.destroyEntity(light)
-                engine.destroyRenderer(renderer)
-                engine.destroyView(this@ModelViewer.view)
-                engine.destroyScene(scene)
-                engine.destroyCameraComponent(camera.entity)
-                EntityManager.get().destroy(camera.entity)
-
-                EntityManager.get().destroy(light)
-
-                engine.destroy()
+                cleanupResources()
             }
         })
+    }
+
+    private fun cleanupResources() {
+        uiHelper.detach()
+
+        destroyModel()
+        assetLoader.destroy()
+        materialProvider.destroyMaterials()
+        materialProvider.destroy()
+        resourceLoader.destroy()
+
+        engine.destroyEntity(light)
+        engine.destroyRenderer(renderer)
+        engine.destroyView(this@ModelViewer.view)
+        engine.destroyScene(scene)
+        engine.destroyCameraComponent(camera.entity)
+        EntityManager.get().destroy(camera.entity)
+
+        EntityManager.get().destroy(light)
+
+        engine.destroy()
     }
 
     /**

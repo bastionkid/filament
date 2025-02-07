@@ -1,5 +1,7 @@
-package com.google.android.filament.gltf
+package com.google.android.filament.gltf.utils
 
+import com.google.android.filament.gltf.models.Quad
+import com.google.android.filament.gltf.models.Vertex
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
@@ -40,7 +42,7 @@ object CylinderUtils {
      */
     fun getQuadVertices(point1Vertices: List<Vertex>, point2Vertices: List<Vertex>): List<Quad> {
         // assert that size of point1Vertices & point2Vertices is same as well as even
-        assert(point1Vertices.size == point2Vertices.size && point1Vertices.size % 2 == 0)
+        require(point1Vertices.size == point2Vertices.size && point1Vertices.size % 2 == 0)
 
         // Zip point1 & point2 vertices list and then create a windows of 2 elements in each iteration
         // We also add first element of each list to the end of each list to make sure the cylinder ends are connected

@@ -40,10 +40,21 @@ import com.google.android.filament.VertexBuffer
 import com.google.android.filament.VertexBuffer.AttributeType
 import com.google.android.filament.VertexBuffer.VertexAttribute
 import com.google.android.filament.View
-import com.google.android.filament.gltf.BufferUtils.FLOAT_SIZE
-import com.google.android.filament.gltf.BufferUtils.UV_SIZE
-import com.google.android.filament.gltf.BufferUtils.VERTEX_POSITION_SIZE
-import com.google.android.filament.gltf.BufferUtils.VERTEX_POSITION_WITH_COLOR_SIZE
+import com.google.android.filament.gltf.models.Quad
+import com.google.android.filament.gltf.models.Vertex
+import com.google.android.filament.gltf.models.VertexWithColor
+import com.google.android.filament.gltf.utils.BufferUtils.FLOAT_SIZE
+import com.google.android.filament.gltf.utils.BufferUtils.UV_SIZE
+import com.google.android.filament.gltf.utils.BufferUtils.VERTEX_POSITION_SIZE
+import com.google.android.filament.gltf.utils.BufferUtils.VERTEX_POSITION_WITH_COLOR_SIZE
+import com.google.android.filament.gltf.utils.CylinderUtils
+import com.google.android.filament.gltf.utils.buildTextureFromImageResource
+import com.google.android.filament.gltf.utils.createBufferDataFromQuad
+import com.google.android.filament.gltf.utils.createBufferDataFromVertices
+import com.google.android.filament.gltf.utils.createIndexBuffer
+import com.google.android.filament.gltf.utils.quadraticBezier
+import com.google.android.filament.gltf.utils.readCompressedAsset
+import com.google.android.filament.gltf.utils.translateEntity
 import com.google.android.filament.utils.KTX1Loader
 import com.google.android.filament.utils.ModelViewer
 import com.google.android.filament.utils.Utils
@@ -321,7 +332,7 @@ class MainActivity : FragmentActivity() {
 //        addTriangle()
 //        addLine()
 //        addTransparentTexture()
-//        addBallTrajectory()
+//        addBallTrajectoryWithDiscs()
 //        addQuad(
 //            Quad(
 //                topLeftVertex = Vertex(
@@ -343,7 +354,7 @@ class MainActivity : FragmentActivity() {
 //                )
 //            )
 //        )
-//        addCylinder()
+//        addBallTrajectory()
 
         modelViewer.showEntity("pitch")
         modelViewer.hideEntity("pitch_overlay")
@@ -591,7 +602,7 @@ class MainActivity : FragmentActivity() {
         modelViewer.scene.addEntity(transparentEntity)
     }
 
-    private fun addBallTrajectory() {
+    private fun addBallTrajectoryWithDiscs() {
         val xStepSize = 0.0003f
         val yStepSize = 0.001f
         val zStepSize = 0.01f
@@ -682,7 +693,7 @@ class MainActivity : FragmentActivity() {
         modelViewer.scene.addEntity(quadEntity)
     }
 
-    private fun addCylinder() {
+    private fun addBallTrajectory() {
         val radius = 0.025f
         val interpolationPoints = 50
         val circumferencePoints = 50

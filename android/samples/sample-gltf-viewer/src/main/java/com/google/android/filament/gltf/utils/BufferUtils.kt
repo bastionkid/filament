@@ -1,7 +1,9 @@
-package com.google.android.filament.gltf
+package com.google.android.filament.gltf.utils
 
 import com.google.android.filament.Engine
 import com.google.android.filament.IndexBuffer
+import com.google.android.filament.gltf.models.Quad
+import com.google.android.filament.gltf.models.Vertex
 import java.nio.Buffer
 import java.nio.FloatBuffer
 import java.nio.ShortBuffer

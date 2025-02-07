@@ -1,4 +1,4 @@
-package com.google.android.filament.gltf
+package com.google.android.filament.gltf.utils
 
 import com.google.android.filament.Entity
 import com.google.android.filament.RenderableManager

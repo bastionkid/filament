@@ -1,4 +1,4 @@
-package com.google.android.filament.gltf
+package com.google.android.filament.gltf.utils
 
 /**
  * A quadratic Bézier curve is defined by 3 points: a start point, a control point,

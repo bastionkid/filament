@@ -270,7 +270,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# Compile bakedColor material.\n\nHOST_TOOLS_PATH=\"${HOST_TOOLS_PATH:-../../../out/release/filament/bin}\"\nmatc_path=`find ${HOST_TOOLS_PATH} -name matc -type f | head -n 1`\n\nif [[ ! -e \"${matc_path}\" ]]; then\n  echo \"No matc binary could be found in ${HOST_TOOLS_PATH}.\"\n  echo \"Ensure Filament has been built/installed before building this app.\"\n  exit 1\nfi\n\nmkdir -p \"${PROJECT_DIR}/generated/\"\n\"${matc_path}\" \\\n    --api all \\\n    -f header \\\n    -o \"${PROJECT_DIR}/generated/cylinder.inc\" \\\n    \"${PROJECT_DIR}/Materials/cylinder.mat\"\n\n# FILViewController.mm includes cylinder.inc, so touch it to force Xcode to\n# recompile it.\ntouch \"${PROJECT_DIR}/gltf-viewer/FILViewController.mm\"\n";
+			shellScript = "# Compile cylinder material.\n\nHOST_TOOLS_PATH=\"${HOST_TOOLS_PATH:-../../../out/release/filament/bin}\"\nmatc_path=`find ${HOST_TOOLS_PATH} -name matc -type f | head -n 1`\n\nif [[ ! -e \"${matc_path}\" ]]; then\n  echo \"No matc binary could be found in ${HOST_TOOLS_PATH}.\"\n  echo \"Ensure Filament has been built/installed before building this app.\"\n  exit 1\nfi\n\nmkdir -p \"${PROJECT_DIR}/generated/\"\n\"${matc_path}\" \\\n    --api all \\\n    -f header \\\n    -o \"${PROJECT_DIR}/generated/cylinder.inc\" \\\n    \"${PROJECT_DIR}/Materials/cylinder.mat\"\n\n# FILViewController.mm includes cylinder.inc, so touch it to force Xcode to\n# recompile it.\ntouch \"${PROJECT_DIR}/gltf-viewer/FILViewController.mm\"\n";
 		};
 		4332F08B2D50C4E2002DE724 /* Build Material (Baked Color) */ = {
 			isa = PBXShellScriptBuildPhase;

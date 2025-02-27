@@ -192,7 +192,7 @@ static constexpr uint8_t TRANSPARENT_IMAGE_MATERIAL[] = {
 }
 
 - (void)createDefaultRenderables {
-    NSString* path = [[NSBundle mainBundle] pathForResource:@"stadium" ofType:@"gltf" inDirectory:@"BusterDrone"];
+    NSString* path = [[NSBundle mainBundle] pathForResource:@"paint" ofType:@"gltf" inDirectory:@"BusterDrone"];
     NSData* buffer = [NSData dataWithContentsOfFile:path];
     [self.modelView loadModelGlb:buffer];
     [self.modelView transformToRoot];
@@ -209,8 +209,9 @@ static constexpr uint8_t TRANSPARENT_IMAGE_MATERIAL[] = {
     }
     
 //    [self addTriangle];
-//    [self addCylinder];
+//    [self addBallTrajectory];
 //    [self addTransparentTexture];
+    [self copyMaterialFromOneEntityToAnother];
 }
 
 - (void)createLights {
@@ -272,6 +273,23 @@ static constexpr uint8_t TRANSPARENT_IMAGE_MATERIAL[] = {
     self.modelView.engine->destroy(_sun);
 }
 
+- (void)copyMaterialFromOneEntityToAnother {
+    MaterialInstance* materialInstance;
+    RenderableManager& rm = self.modelView.engine->getRenderableManager();
+    
+    Entity sphere1Entity = self.modelView.asset->getFirstEntityByName("Sphere1");
+    if (rm.hasComponent(sphere1Entity)) {
+        EntityInstance renderable = rm.getInstance(sphere1Entity);
+        materialInstance = rm.getMaterialInstanceAt(renderable, 0);
+    }
+    
+    Entity sphere2Entity = self.modelView.asset->getFirstEntityByName("Sphere2");
+    if (rm.hasComponent(sphere2Entity)) {
+        EntityInstance renderable = rm.getInstance(sphere2Entity);
+        rm.setMaterialInstanceAt(renderable, 0, materialInstance);
+    }
+}
+
 - (IBAction)onToggleOverlayClick:(id)sender {
     if (_pitchOverlayVisible) {
         [self.modelView showEntity:@"pitch"];
@@ -308,7 +326,7 @@ static constexpr uint8_t TRANSPARENT_IMAGE_MATERIAL[] = {
     return (((float)arc4random()/0x100000000)*(high_bound-low_bound)+low_bound);
 }
 
-- (void)addCylinder {
+- (void)addBallTrajectory {
     const float radius = 0.025f;
     const int interpolationPoints = 50;
     const int circumferencePoints = 50;

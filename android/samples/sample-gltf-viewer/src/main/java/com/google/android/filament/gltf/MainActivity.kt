@@ -320,7 +320,7 @@ class MainActivity : FragmentActivity() {
     }
 
     private fun createDefaultRenderables() {
-        val buffer = assets.open("models/stadium.gltf").use { input ->
+        val buffer = assets.open("models/paint.gltf").use { input ->
             val bytes = ByteArray(input.available())
             input.read(bytes)
             ByteBuffer.wrap(bytes)
@@ -355,6 +355,7 @@ class MainActivity : FragmentActivity() {
 //            )
 //        )
 //        addBallTrajectory()
+        copyMaterialFromOneEntityToAnother("Sphere1", "Sphere2")
 
         modelViewer.showEntity("pitch")
         modelViewer.hideEntity("pitch_overlay")
@@ -384,6 +385,24 @@ class MainActivity : FragmentActivity() {
         // Create Skybox
         assets.readCompressedAsset("envs/$ibl/${ibl}_skybox.ktx").let {
             scene.skybox = KTX1Loader.createSkybox(engine, it)
+        }
+    }
+
+    private fun copyMaterialFromOneEntityToAnother(from: String, to: String) {
+        modelViewer.asset?.let { asset ->
+            val fromEntity = asset.getFirstEntityByName(from)
+
+            if (fromEntity != 0) {
+                val fromRenderable = modelViewer.engine.renderableManager.getInstance(fromEntity)
+                val materialInstance = modelViewer.engine.renderableManager.getMaterialInstanceAt(fromRenderable, 0)
+
+                val toEntity = asset.getFirstEntityByName(to)
+
+                if (toEntity != 0) {
+                    val toRenderable = modelViewer.engine.renderableManager.getInstance(toEntity)
+                    modelViewer.engine.renderableManager.setMaterialInstanceAt(toRenderable, 0, materialInstance)
+                }
+            }
         }
     }
 

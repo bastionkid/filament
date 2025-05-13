@@ -375,16 +375,17 @@ class MainActivity : FragmentActivity() {
         val engine = modelViewer.engine
         val scene = modelViewer.scene
         val ibl = "white_furnace"
-
-        // Create Light
-        assets.readCompressedAsset("envs/$ibl/${ibl}_ibl.ktx").let {
-            scene.indirectLight = KTX1Loader.createIndirectLight(engine, it)
+        readCompressedAsset("envs/$ibl/${ibl}_ibl.ktx").let {
+            val bundle = KTX1Loader.createIndirectLight(engine, it)
+            scene.indirectLight = bundle.indirectLight
+            modelViewer.indirectLightCubemap = bundle.cubemap
             scene.indirectLight!!.intensity = 60_000.0f
+            viewerContent.indirectLight = modelViewer.scene.indirectLight
         }
-
-        // Create Skybox
-        assets.readCompressedAsset("envs/$ibl/${ibl}_skybox.ktx").let {
-            scene.skybox = KTX1Loader.createSkybox(engine, it)
+        readCompressedAsset("envs/$ibl/${ibl}_skybox.ktx").let {
+            val bundle = KTX1Loader.createSkybox(engine, it)
+            scene.skybox = bundle.skybox
+            modelViewer.skyboxCubemap = bundle.cubemap
         }
     }
 

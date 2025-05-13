@@ -85,6 +85,10 @@ target_include_directories(${TARGET} PUBLIC ${PUBLIC_HDR_DIR})
 set_target_properties(${TARGET} PROPERTIES FOLDER Libs)
 target_link_libraries(${TARGET} backend_headers shaders filabridge utils smol-v)
 
+if (FILAMENT_SUPPORTS_WEBGPU)
+    target_link_libraries(${TARGET} libtint)
+endif ()
+
 # We are being naughty and accessing private headers here
 # For spirv-tools, we're just following glslang's example
 target_include_directories(${TARGET} PRIVATE ${spirv-tools_SOURCE_DIR}/include)
@@ -122,7 +126,6 @@ endif()
 # requires us to explicitly list the dependencies below, as CMake doesn't have a way to recursively
 # query dependencies.
 set(FILAMAT_DEPS
-        OGLCompiler
         OSDependent
         SPIRV
         SPIRV-Tools
@@ -141,22 +144,26 @@ set(FILAMAT_LIB_NAME ${CMAKE_STATIC_LIBRARY_PREFIX}filamat${CMAKE_STATIC_LIBRARY
 install(FILES "${FILAMAT_COMBINED_OUTPUT}" DESTINATION lib/${DIST_DIR} RENAME ${FILAMAT_LIB_NAME})
 install(DIRECTORY ${PUBLIC_HDR_DIR}/filamat DESTINATION include)
 
+# Need to install libtint for filamat on Android.
+# See libs/filamat/CMakeLists.txt and android/filamat-android/CMakeLists.txt.
+if (ANDROID)
+   target_link_libraries(${TARGET} libtint_combined)
+endif()
+
 # ==================================================================================================
 # Tests
 # ==================================================================================================
-project(test_filamat)
-set(TARGET test_filamat)
-set(SRCS
-        tests/test_filamat.cpp
-        tests/test_argBufferFixup.cpp
-        tests/test_clipDistanceFixup.cpp
-        tests/test_includes.cpp)
+if (IS_HOST_PLATFORM)
+    project(test_filamat)
+    set(TARGET test_filamat)
+    set(SRCS
+            tests/test_filamat.cpp
+            tests/test_argBufferFixup.cpp
+            tests/test_clipDistanceFixup.cpp
+            tests/test_includes.cpp)
 
-add_executable(${TARGET} ${SRCS})
-
-target_include_directories(${TARGET} PRIVATE src)
-
-target_link_libraries(${TARGET} filamat gtest)
-
-set_target_properties(${TARGET} PROPERTIES FOLDER Tests)
-
+    add_executable(${TARGET} ${SRCS})
+    target_include_directories(${TARGET} PRIVATE src)
+    target_link_libraries(${TARGET} filamat gtest)
+    set_target_properties(${TARGET} PROPERTIES FOLDER Tests)
+endif()

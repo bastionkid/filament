@@ -81,7 +81,8 @@ public:
     bool process(const std::string& inputShader, Config const& config,
             std::string* outputGlsl,
             SpirvBlob* outputSpirv,
-            std::string* outputMsl);
+            std::string* outputMsl,
+            std::string* outputWgsl);
 
     // public so backend_test can also use it
     static void spirvToMsl(const SpirvBlob* spirv, std::string* outMsl,
@@ -89,11 +90,14 @@ public:
             bool useFramebufferFetch, const DescriptorSets& descriptorSets,
             const ShaderMinifier* minifier);
 
+    static bool spirvToWgsl(SpirvBlob* spirv, std::string* outWsl);
+
 private:
     struct InternalConfig {
         std::string* glslOutput = nullptr;
         SpirvBlob* spirvOutput = nullptr;
         std::string* mslOutput = nullptr;
+        std::string* wgslOutput = nullptr;
         EShLanguage shLang = EShLangFragment;
         // use 100 for ES environment, 110 for desktop
          int langVersion = 0;
@@ -103,21 +107,27 @@ private:
     bool fullOptimization(const glslang::TShader& tShader,
             GLSLPostProcessor::Config const& config, InternalConfig& internalConfig) const;
 
-    void preprocessOptimization(glslang::TShader& tShader,
+    bool preprocessOptimization(glslang::TShader& tShader,
             GLSLPostProcessor::Config const& config, InternalConfig& internalConfig) const;
 
     /**
      * Retrieve an optimizer instance tuned for the given optimization level and shader configuration.
      */
     using OptimizerPtr = std::shared_ptr<spvtools::Optimizer>;
+
     static OptimizerPtr createOptimizer(
             MaterialBuilder::Optimization optimization,
             Config const& config);
 
+    static OptimizerPtr createEmptyOptimizer();
+
     static void registerSizePasses(spvtools::Optimizer& optimizer, Config const& config);
+
     static void registerPerformancePasses(spvtools::Optimizer& optimizer, Config const& config);
 
-    void optimizeSpirv(OptimizerPtr optimizer, SpirvBlob& spirv) const;
+    static void optimizeSpirv(OptimizerPtr optimizer, SpirvBlob &spirv);
+
+    static void rebindImageSamplerForWGSL(std::vector<uint32_t>& spirv);
 
     void fixupClipDistance(SpirvBlob& spirv, GLSLPostProcessor::Config const& config) const;
 

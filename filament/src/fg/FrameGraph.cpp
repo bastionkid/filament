@@ -32,6 +32,7 @@
 #include <backend/Handle.h>
 
 #include <utils/compiler.h>
+#include <utils/CString.h>
 #include <utils/debug.h>
 #include <utils/ostream.h>
 #include <utils/Panic.h>
@@ -475,7 +476,7 @@ bool FrameGraph::isAcyclic() const noexcept {
     return mGraph.isAcyclic();
 }
 
-void FrameGraph::export_graphviz(utils::io::ostream& out, char const* name) {
+void FrameGraph::export_graphviz(utils::io::ostream& out, char const* name) const noexcept {
     mGraph.export_graphviz(out, name);
 }
 
@@ -488,7 +489,7 @@ fgviewer::FrameGraphInfo FrameGraph::getFrameGraphInfo(const char *viewName) con
     const auto activePassNodesEnd = mActivePassNodesEnd;
     while (first != activePassNodesEnd) {
         PassNode *const pass = *first;
-        first++;
+        ++first;
 
         assert_invariant(!pass->isCulled());
         std::vector<fgviewer::ResourceId> reads;
@@ -496,7 +497,12 @@ fgviewer::FrameGraphInfo FrameGraph::getFrameGraphInfo(const char *viewName) con
         for (auto const &edge: readEdges) {
             // all incoming edges should be valid by construction
             assert_invariant(mGraph.isEdgeValid(edge));
-            reads.push_back(edge->from);
+            auto resourceNode = static_cast<const ResourceNode*>(mGraph.getNode(edge->from));
+            assert_invariant(resourceNode);
+            if (resourceNode->getRefCount() == 0)
+                continue;
+
+            reads.push_back(resourceNode->resourceHandle.index);
         }
 
         std::vector<fgviewer::ResourceId> writes;
@@ -507,25 +513,70 @@ fgviewer::FrameGraphInfo FrameGraph::getFrameGraphInfo(const char *viewName) con
             if (!mGraph.isEdgeValid(edge)) {
                 continue;
             }
-            writes.push_back(edge->to);
+            auto resourceNode = static_cast<const ResourceNode*>(mGraph.getNode(edge->to));
+            assert_invariant(resourceNode);
+            if (resourceNode->getRefCount() == 0)
+                continue;
+            writes.push_back(resourceNode->resourceHandle.index);
         }
         passes.emplace_back(utils::CString(pass->getName()),
             std::move(reads), std::move(writes));
     }
 
     std::unordered_map<fgviewer::ResourceId, fgviewer::FrameGraphInfo::Resource> resources;
-    for (const auto &resource: mResourceNodes) {
+    for (const auto &resourceNode: mResourceNodes) {
+        const FrameGraphHandle resourceHandle = resourceNode->resourceHandle;
+        if (resources.find(resourceHandle.index) != resources.end())
+            continue;
+
+        if (resourceNode->getRefCount() == 0)
+            continue;
+
         std::vector<fgviewer::FrameGraphInfo::Resource::Property> resourceProps;
-        // TODO: Fill in resource properties
-        fgviewer::ResourceId id = resource->getId();
-        resources.emplace(id, fgviewer::FrameGraphInfo::Resource(
-                              id, utils::CString(resource->getName()),
+        auto emplace_resource_property =
+            [&resourceProps](utils::CString key, utils::CString value) {
+                resourceProps.emplace_back(fgviewer::FrameGraphInfo::Resource::Property{
+                    .name = std::move(key),
+                    .value = std::move(value)
+                });
+            };
+        auto emplace_resource_descriptor = [this, &emplace_resource_property](
+            const FrameGraphHandle& resourceHandle) {
+            // TODO: A better way to handle generic resource types. Right now we only have one
+            // resource type so it works
+            auto descriptor = static_cast<Resource<FrameGraphTexture> const*>(
+                getResource(resourceHandle))->descriptor;
+            emplace_resource_property("width",
+                utils::CString(std::to_string(descriptor.width).data()));
+            emplace_resource_property("height",
+                utils::CString(std::to_string(descriptor.height).data()));
+            emplace_resource_property("depth",
+                utils::CString(std::to_string(descriptor.depth).data()));
+            emplace_resource_property("format",
+                utils::to_string(descriptor.format));
+
+        };
+
+        if (resourceNode->getParentNode() != nullptr) {
+            emplace_resource_property("is_subresource_of",
+                utils::CString(std::to_string(
+                        resourceNode->getParentHandle().index).data()));
+        }
+        emplace_resource_descriptor(resourceHandle);
+        resources.emplace(resourceHandle.index, fgviewer::FrameGraphInfo::Resource(
+                              resourceHandle.index,
+                              utils::CString(resourceNode->getName()),
                               std::move(resourceProps))
         );
     }
 
     info.setResources(std::move(resources));
     info.setPasses(std::move(passes));
+
+    // Generate GraphViz DOT data
+    utils::io::sstream out;
+    this->export_graphviz(out, viewName);
+    info.setGraphvizData(utils::CString(out.c_str()));
 
     return info;
 #else

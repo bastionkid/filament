@@ -54,6 +54,8 @@ namespace filament {
 struct UTILS_PUBLIC ToneMapper {
     ToneMapper() noexcept;
     virtual ~ToneMapper() noexcept;
+    ToneMapper(ToneMapper const&) noexcept;
+    ToneMapper& operator=(ToneMapper const&) noexcept = default;
 
     /**
      * Maps an open domain (or "scene referred" values) color value to display
@@ -68,6 +70,28 @@ struct UTILS_PUBLIC ToneMapper {
      *         function applied ("linear")
      */
     virtual math::float3 operator()(math::float3 c) const noexcept = 0;
+
+    /**
+     * Creates a copy of this tone mapper instance.
+     *
+     * @return A pointer to a new ToneMapper instance that is a copy of this instance.
+     */
+    virtual ToneMapper* clone() const noexcept = 0;
+
+    /**
+     * If true, then this function holds that f(x) = vec3(f(x.r), f(x.g), f(x.b))
+     *
+     * This may be used to indicate that the color grading's LUT only requires a 1D texture instead
+     * of a 3D texture, potentially saving a significant amount of memory and generation time.
+     */
+    virtual bool isOneDimensional() const noexcept { return false; }
+
+    /**
+     * True if this tonemapper only works in low-dynamic-range.
+     *
+     * This may be used to indicate that the color grading's LUT doesn't need to be log encoded.
+     */
+    virtual bool isLDR() const noexcept { return false; }
 };
 
 /**
@@ -77,8 +101,12 @@ struct UTILS_PUBLIC ToneMapper {
 struct UTILS_PUBLIC LinearToneMapper final : public ToneMapper {
     LinearToneMapper() noexcept;
     ~LinearToneMapper() noexcept final;
+    LinearToneMapper(LinearToneMapper const&) noexcept;
 
     math::float3 operator()(math::float3 c) const noexcept override;
+    LinearToneMapper* clone() const noexcept override;
+    bool isOneDimensional() const noexcept override { return true; }
+    bool isLDR() const noexcept override { return true; }
 };
 
 /**
@@ -89,8 +117,12 @@ struct UTILS_PUBLIC LinearToneMapper final : public ToneMapper {
 struct UTILS_PUBLIC ACESToneMapper final : public ToneMapper {
     ACESToneMapper() noexcept;
     ~ACESToneMapper() noexcept final;
+    ACESToneMapper(ACESToneMapper const&) noexcept;
 
     math::float3 operator()(math::float3 c) const noexcept override;
+    ACESToneMapper* clone() const noexcept override;
+    bool isOneDimensional() const noexcept override { return false; }
+    bool isLDR() const noexcept override { return false; }
 };
 
 /**
@@ -102,8 +134,12 @@ struct UTILS_PUBLIC ACESToneMapper final : public ToneMapper {
 struct UTILS_PUBLIC ACESLegacyToneMapper final : public ToneMapper {
     ACESLegacyToneMapper() noexcept;
     ~ACESLegacyToneMapper() noexcept final;
+    ACESLegacyToneMapper(ACESLegacyToneMapper const&) noexcept;
 
     math::float3 operator()(math::float3 c) const noexcept override;
+    ACESLegacyToneMapper* clone() const noexcept override;
+    bool isOneDimensional() const noexcept override { return false; }
+    bool isLDR() const noexcept override { return false; }
 };
 
 /**
@@ -115,8 +151,12 @@ struct UTILS_PUBLIC ACESLegacyToneMapper final : public ToneMapper {
 struct UTILS_PUBLIC FilmicToneMapper final : public ToneMapper {
     FilmicToneMapper() noexcept;
     ~FilmicToneMapper() noexcept final;
+    FilmicToneMapper(FilmicToneMapper const&) noexcept;
 
     math::float3 operator()(math::float3 x) const noexcept override;
+    FilmicToneMapper* clone() const noexcept override;
+    bool isOneDimensional() const noexcept override { return true; }
+    bool isLDR() const noexcept override { return false; }
 };
 
 /**
@@ -127,8 +167,12 @@ struct UTILS_PUBLIC FilmicToneMapper final : public ToneMapper {
 struct UTILS_PUBLIC PBRNeutralToneMapper final : public ToneMapper {
     PBRNeutralToneMapper() noexcept;
     ~PBRNeutralToneMapper() noexcept final;
+    PBRNeutralToneMapper(PBRNeutralToneMapper const&) noexcept;
 
     math::float3 operator()(math::float3 x) const noexcept override;
+    virtual PBRNeutralToneMapper* clone() const noexcept override;
+    bool isOneDimensional() const noexcept override { return false; }
+    bool isLDR() const noexcept override { return false; }
 };
 
 /**
@@ -148,8 +192,12 @@ struct UTILS_PUBLIC AgxToneMapper final : public ToneMapper {
      */
     explicit AgxToneMapper(AgxLook look = AgxLook::NONE) noexcept;
     ~AgxToneMapper() noexcept final;
+    AgxToneMapper(AgxToneMapper const&) noexcept;
 
     math::float3 operator()(math::float3 x) const noexcept override;
+    virtual AgxToneMapper* clone() const noexcept override;
+    bool isOneDimensional() const noexcept override { return false; }
+    bool isLDR() const noexcept override { return false; }
 
     AgxLook look;
 };
@@ -188,12 +236,15 @@ struct UTILS_PUBLIC GenericToneMapper final : public ToneMapper {
     ) noexcept;
     ~GenericToneMapper() noexcept final;
 
-    GenericToneMapper(GenericToneMapper const&) = delete;
-    GenericToneMapper& operator=(GenericToneMapper const&) = delete;
+    GenericToneMapper(GenericToneMapper const& rhs) noexcept;
+    GenericToneMapper& operator=(GenericToneMapper const& rhs) noexcept;
     GenericToneMapper(GenericToneMapper&& rhs)  noexcept;
     GenericToneMapper& operator=(GenericToneMapper&& rhs) noexcept;
 
     math::float3 operator()(math::float3 x) const noexcept override;
+    GenericToneMapper* clone() const noexcept override;
+    bool isOneDimensional() const noexcept override { return true; }
+    bool isLDR() const noexcept override { return false; }
 
     /** Returns the contrast of the curve as a strictly positive value. */
     float getContrast() const noexcept;
@@ -254,8 +305,12 @@ private:
 struct UTILS_PUBLIC DisplayRangeToneMapper final : public ToneMapper {
     DisplayRangeToneMapper() noexcept;
     ~DisplayRangeToneMapper() noexcept override;
+    DisplayRangeToneMapper(DisplayRangeToneMapper const&) noexcept;
 
     math::float3 operator()(math::float3 c) const noexcept override;
+    DisplayRangeToneMapper* clone() const noexcept override;
+    bool isOneDimensional() const noexcept override { return false; }
+    bool isLDR() const noexcept override { return false; }
 };
 
 } // namespace filament

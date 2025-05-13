@@ -181,6 +181,18 @@ static bool printMetalInfo(ostream& json, const ChunkContainer& container) {
     return true;
 }
 
+static bool printWGPUInfo(ostream& json, const ChunkContainer& container) {
+    std::vector<ShaderInfo> info;
+    info.resize(getShaderCount(container, ChunkType::MaterialWgsl));
+    if (!getShaderInfo(container, info.data(), ChunkType::MaterialWgsl)) {
+        return false;
+    }
+    json << "\"webgpu\": [\n";
+    printShaderInfo(json, info, container);
+    json << "],\n";
+    return true;
+}
+
 bool JsonWriter::writeMaterialInfo(const filaflat::ChunkContainer& container) {
     ostringstream json;
     if (!printMaterial(json, container)) {
@@ -199,6 +211,9 @@ bool JsonWriter::writeMaterialInfo(const filaflat::ChunkContainer& container) {
         return false;
     }
     if (!printMetalInfo(json, container)) {
+        return false;
+    }
+    if (!printWGPUInfo(json, container)) {
         return false;
     }
 
@@ -232,7 +247,7 @@ size_t JsonWriter::getJsonSize() const {
 }
 
 bool JsonWriter::writeActiveInfo(const filaflat::ChunkContainer& package,
-        ShaderLanguage shaderLanguage, VariantList activeVariants) {
+        ShaderLanguage shaderLanguage, DbgShaderModel shaderModel, VariantList activeVariants) {
     vector<ShaderInfo> shaders;
     ostringstream json;
     json << "[\"";
@@ -254,13 +269,30 @@ bool JsonWriter::writeActiveInfo(const filaflat::ChunkContainer& package,
             json << "metal";
             chunkType = ChunkType::MaterialMetal;
             break;
+        case ShaderLanguage::WGSL:
+            json << "webgpu";
+            chunkType = ChunkType::MaterialWgsl;
+            break;
         default:
             return false;
     }
     shaders.resize(getShaderCount(package, chunkType));
     getShaderInfo(package, shaders.data(), chunkType);
 
+    json << "\", \"";
+    switch (shaderModel) {
+        case DbgShaderModel::DESKTOP:
+            json << toString(ShaderModel::DESKTOP);
+            break;
+        case DbgShaderModel::MOBILE:
+            json << toString(ShaderModel::MOBILE);
+            break;
+        case DbgShaderModel::MATINFO:
+            json << "matinfo";
+            break;
+    }
     json << "\"";
+
     for (size_t variant = 0; variant < activeVariants.size(); variant++) {
         if (activeVariants[variant]) {
             json << ", " << variant;

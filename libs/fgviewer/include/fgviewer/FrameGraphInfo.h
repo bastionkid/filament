@@ -1,5 +1,5 @@
 /*
-* Copyright (C) 2024 The Android Open Source Project
+ * Copyright (C) 2024 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,9 +36,13 @@ public:
 
     FrameGraphInfo(FrameGraphInfo const &) = delete;
 
+    bool operator==(const FrameGraphInfo& rhs) const;
+
     struct Pass {
         Pass(utils::CString name, std::vector<ResourceId> reads,
              std::vector<ResourceId> writes);
+
+        bool operator==(const Pass& rhs) const;
 
         utils::CString name;
         std::vector<ResourceId> reads;
@@ -46,11 +50,15 @@ public:
     };
 
     struct Resource {
+        bool operator==(const Resource& rhs) const;
+
         struct Property {
+            bool operator==(const Property& rhs) const;
+
             utils::CString name;
             utils::CString value;
         };
-        
+
         Resource(ResourceId id, utils::CString name,
                  std::vector<Property> properties);
 
@@ -70,12 +78,23 @@ public:
     // The incoming passes should be sorted by the execution order.
     void setPasses(std::vector<Pass> sortedPasses);
 
+    void setGraphvizData(utils::CString data);
+
+    const char* getViewName() const;
+
+    const std::vector<Pass>& getPasses() const;
+
+    const std::unordered_map<ResourceId, Resource>& getResources() const;
+
+    const char* getGraphvizData() const;
+
 private:
     utils::CString viewName;
     // The order of the passes in the vector indicates the execution
     // order of the passes.
     std::vector<Pass> passes;
     std::unordered_map<ResourceId, Resource> resources;
+    utils::CString graphvizData;
 };
 } // namespace filament::fgviewer
 

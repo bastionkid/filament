@@ -31,6 +31,7 @@
 #include "MetalTimerQuery.h"
 
 #include <backend/platforms/PlatformMetal.h>
+#include <backend/platforms/PlatformMetal-ObjC.h>
 
 #include <CoreVideo/CVMetalTexture.h>
 #include <CoreVideo/CVPixelBuffer.h>
@@ -113,15 +114,21 @@ MetalDriver::MetalDriver(
     : mPlatform(*platform),
       mContext(new MetalContext),
       mHandleAllocator(
-              "Handles", driverConfig.handleArenaSize, driverConfig.disableHandleUseAfterFreeCheck),
+                "Handles",
+                driverConfig.handleArenaSize,
+                driverConfig.disableHandleUseAfterFreeCheck,
+                driverConfig.disableHeapHandleTags),
       mStereoscopicType(driverConfig.stereoscopicType) {
     mContext->driver = this;
 
     TrackedMetalBuffer::setPlatform(platform);
     ScopedAllocationTimer::setPlatform(platform);
 
-    mContext->device = mPlatform.createDevice();
-    assert_invariant(mContext->device);
+    MetalDevice device;
+    device.device = nil;
+    mPlatform.createDevice(device);
+    mContext->device = device.device;
+    FILAMENT_CHECK_POSTCONDITION(mContext->device) << "Could not obtain Metal device.";
 
     mContext->emptyBuffer = [mContext->device newBufferWithLength:16
                                                           options:MTLResourceStorageModePrivate];
@@ -186,7 +193,13 @@ MetalDriver::MetalDriver(
             [mContext->device.name containsString:@"Apple A8 GPU"] ||
             [mContext->device.name containsString:@"Apple A7 GPU"];
 
-    mContext->commandQueue = mPlatform.createCommandQueue(mContext->device);
+    MetalCommandQueue commandQueue;
+    commandQueue.commandQueue = nil;
+    mPlatform.createCommandQueue(device, commandQueue);
+    FILAMENT_CHECK_POSTCONDITION(commandQueue.commandQueue)
+            << "Could not create Metal command queue.";
+
+    mContext->commandQueue = commandQueue.commandQueue;
     mContext->pipelineStateCache.setDevice(mContext->device);
     mContext->depthStencilStateCache.setDevice(mContext->device);
     mContext->samplerStateCache.setDevice(mContext->device);
@@ -513,6 +526,14 @@ void MetalDriver::createTextureViewSwizzleR(Handle<HwTexture> th, Handle<HwTextu
     mContext->textures.insert(construct_handle<MetalTexture>(th, *mContext, src, r, g, b, a));
 }
 
+void MetalDriver::createTextureExternalImage2R(Handle<HwTexture> th,
+        backend::SamplerType target,
+        backend::TextureFormat format,
+        uint32_t width, uint32_t height, backend::TextureUsage usage,
+        Platform::ExternalImageHandleRef image) {
+    // FIXME: implement createTextureExternalImage2R
+}
+
 void MetalDriver::createTextureExternalImageR(Handle<HwTexture> th,
         backend::SamplerType target,
         backend::TextureFormat format,
@@ -700,15 +721,25 @@ const char* toString(DescriptorFlags flags) {
 
 void MetalDriver::createDescriptorSetLayoutR(
         Handle<HwDescriptorSetLayout> dslh, DescriptorSetLayout&& info) {
+#if FILAMENT_METAL_DEBUG_LOG == 1
+    const char* labelStr = "";
+    std::visit([&labelStr](auto&& arg) {
+        using T = std::decay_t<decltype(arg)>;
+        if constexpr (std::is_same_v<T, utils::CString> || std::is_same_v<T, utils::StaticString>) {
+            labelStr = arg.c_str();
+        }
+    }, info.label);
     std::sort(info.bindings.begin(), info.bindings.end(),
             [](const auto& a, const auto& b) { return a.binding < b.binding; });
-    DEBUG_LOG("createDescriptorSetLayoutR(dslh = %d, info = {\n", dslh.getId());
+    DEBUG_LOG("createDescriptorSetLayoutR(dslh = %d, info = { label = %s,\n", dslh.getId(),
+            labelStr);
     for (size_t i = 0; i < info.bindings.size(); i++) {
         DEBUG_LOG("    {binding = %d, type = %s, count = %d, stage = %s, flags = %s},\n",
                 info.bindings[i].binding, toString(info.bindings[i].type), info.bindings[i].count,
                 toString(info.bindings[i].stageFlags), toString(info.bindings[i].flags));
     }
     DEBUG_LOG("})\n");
+#endif
     construct_handle<MetalDescriptorSetLayout>(dslh, std::move(info));
 }
 
@@ -744,6 +775,10 @@ Handle<HwTexture> MetalDriver::createTextureViewS() noexcept {
 }
 
 Handle<HwTexture> MetalDriver::createTextureViewSwizzleS() noexcept {
+    return alloc_handle<MetalTexture>();
+}
+
+Handle<HwTexture> MetalDriver::createTextureExternalImage2S() noexcept {
     return alloc_handle<MetalTexture>();
 }
 
@@ -959,7 +994,7 @@ Handle<HwStream> MetalDriver::createStreamAcquired() {
     return {};
 }
 
-void MetalDriver::setAcquiredImage(Handle<HwStream> sh, void* image,
+void MetalDriver::setAcquiredImage(Handle<HwStream> sh, void* image, const math::mat3f& transform,
         CallbackHandler* handler, StreamCallback cb, void* userData) {
 }
 
@@ -1152,6 +1187,24 @@ size_t MetalDriver::getMaxUniformBufferSize() {
     return 256 * 1024 * 1024;   // TODO: return the actual size instead of hardcoding the minspec
 }
 
+size_t MetalDriver::getMaxTextureSize(SamplerType type) {
+    if (type == SamplerType::SAMPLER_3D) {
+        return 2048;
+    }
+    if (mContext->highestSupportedGpuFamily.apple >= 3 ||
+            mContext->highestSupportedGpuFamily.mac >= 2) {
+        return 16384;
+    } else if (mContext->highestSupportedGpuFamily.apple >= 2) {
+        return 8192;
+    }
+    return 4096;
+}
+
+size_t MetalDriver::getMaxArrayTextureLayers() {
+    // TODO: return the actual size instead of hardcoding the minspec
+    return 256;
+}
+
 void MetalDriver::updateIndexBuffer(Handle<HwIndexBuffer> ibh, BufferDescriptor&& data,
         uint32_t byteOffset) {
     FILAMENT_CHECK_PRECONDITION(data.buffer)
@@ -1160,6 +1213,10 @@ void MetalDriver::updateIndexBuffer(Handle<HwIndexBuffer> ibh, BufferDescriptor&
     ib->buffer.copyIntoBuffer(data.buffer, data.size, byteOffset,
             [&]() { return mHandleAllocator.getHandleTag(ibh.getId()).c_str_safe(); });
     scheduleDestroy(std::move(data));
+}
+
+void MetalDriver::registerBufferObjectStreams(Handle<HwBufferObject> boh, BufferObjectStreamDescriptor&& streams) {
+    // Noop
 }
 
 void MetalDriver::updateBufferObject(Handle<HwBufferObject> boh, BufferDescriptor&& data,
@@ -1216,6 +1273,10 @@ void MetalDriver::update3DImage(Handle<HwTexture> th, uint32_t level,
             "update3DImage(th = %d, level = %d, xoffset = %d, yoffset = %d, zoffset = %d, width = "
             "%d, height = %d, depth = %d, data = ?)\n",
             th.getId(), level, xoffset, yoffset, zoffset, width, height, depth);
+}
+
+void MetalDriver::setupExternalImage2(Platform::ExternalImageHandleRef image) {
+    // FIXME: implement setupExternalImage2
 }
 
 void MetalDriver::setupExternalImage(void* image) {
@@ -1357,8 +1418,8 @@ void MetalDriver::setRenderPrimitiveBuffer(Handle<HwRenderPrimitive> rph, Primit
     auto primitive = handle_cast<MetalRenderPrimitive>(rph);
     auto vertexBuffer = handle_cast<MetalVertexBuffer>(vbh);
     auto indexBuffer = handle_cast<MetalIndexBuffer>(ibh);
-    MetalVertexBufferInfo const* const vbi = handle_cast<MetalVertexBufferInfo>(vertexBuffer->vbih);
-    primitive->setBuffers(vbi, vertexBuffer, indexBuffer);
+    primitive->vertexBuffer = vertexBuffer;
+    primitive->indexBuffer = indexBuffer;
     primitive->type = pt;
 }
 
@@ -1382,6 +1443,9 @@ void MetalDriver::commit(Handle<HwSwapChain> sch) {
 
 void MetalDriver::setPushConstant(backend::ShaderStage stage, uint8_t index,
         backend::PushConstantVariant value) {
+    if (UTILS_UNLIKELY(mContext->currentRenderPassAbandoned)) {
+        return;
+    }
     FILAMENT_CHECK_PRECONDITION(isInRenderPass(mContext))
             << "setPushConstant must be called inside a render pass.";
     assert_invariant(static_cast<size_t>(stage) < mContext->currentPushConstants.size());
@@ -1689,6 +1753,9 @@ void MetalDriver::blitDEPRECATED(TargetBufferFlags buffers,
 }
 
 void MetalDriver::bindPipeline(PipelineState const& ps) {
+    if (UTILS_UNLIKELY(mContext->currentRenderPassAbandoned)) {
+        return;
+    }
     FILAMENT_CHECK_PRECONDITION(mContext->currentRenderPassEncoder != nullptr)
             << "bindPipeline() without a valid command encoder.";
     DEBUG_LOG("bindPipeline(ps = { program = %d }))\n", ps.program.getId());
@@ -1844,6 +1911,9 @@ void MetalDriver::bindPipeline(PipelineState const& ps) {
 }
 
 void MetalDriver::bindRenderPrimitive(Handle<HwRenderPrimitive> rph) {
+    if (UTILS_UNLIKELY(mContext->currentRenderPassAbandoned)) {
+        return;
+    }
     FILAMENT_CHECK_PRECONDITION(mContext->currentRenderPassEncoder != nullptr)
             << "bindRenderPrimitive() without a valid command encoder.";
 

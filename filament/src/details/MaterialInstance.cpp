@@ -24,6 +24,7 @@
 #include "details/Material.h"
 #include "details/MaterialInstance.h"
 #include "details/Texture.h"
+#include "details/Stream.h"
 
 #include "private/filament/EngineEnums.h"
 
@@ -61,6 +62,7 @@ FMaterialInstance::FMaterialInstance(FEngine& engine, FMaterial const* material,
         : mMaterial(material),
           mDescriptorSet(material->getDescriptorSetLayout()),
           mCulling(CullingMode::BACK),
+          mShadowCulling(CullingMode::BACK),
           mDepthFunc(RasterState::DepthFunc::LE),
           mColorWrite(false),
           mDepthWrite(false),
@@ -92,6 +94,7 @@ FMaterialInstance::FMaterialInstance(FEngine& engine, FMaterial const* material,
     // We inherit the resolved culling mode rather than the builder-set culling mode.
     // This preserves the property whereby double-sidedness automatically disables culling.
     mCulling = rasterState.culling;
+    mShadowCulling = rasterState.culling;
     mColorWrite = rasterState.colorWrite;
     mDepthWrite = rasterState.depthWrite;
     mDepthFunc = rasterState.depthFunc;
@@ -126,6 +129,7 @@ FMaterialInstance::FMaterialInstance(FEngine& engine,
           mSpecularAntiAliasingVariance(other->mSpecularAntiAliasingVariance),
           mSpecularAntiAliasingThreshold(other->mSpecularAntiAliasingThreshold),
           mCulling(other->mCulling),
+          mShadowCulling(other->mShadowCulling),
           mDepthFunc(other->mDepthFunc),
           mColorWrite(other->mColorWrite),
           mDepthWrite(other->mDepthWrite),
@@ -187,19 +191,37 @@ void FMaterialInstance::terminate(FEngine& engine) {
     driver.destroyBufferObject(mUbHandle);
 }
 
+void FMaterialInstance::commitStreamUniformAssociations(FEngine::DriverApi& driver) {
+    mHasStreamUniformAssociations = false;
+    if (!mTextureParameters.empty()) {
+        backend::BufferObjectStreamDescriptor descriptor;
+        for (auto const& [binding, p]: mTextureParameters) {
+            ssize_t offset = mMaterial->getUniformInterfaceBlock().getTransformFieldOffset(binding);
+            if (offset >= 0) {
+                mHasStreamUniformAssociations = true;
+                auto stream = p.texture->getStream()->getHandle();
+                descriptor.mStreams.push_back({uint32_t(offset), stream, BufferObjectStreamAssociationType::TRANSFORM_MATRIX});
+            }
+        }
+        if (descriptor.mStreams.size() > 0) {
+            driver.registerBufferObjectStreams(mUbHandle, std::move(descriptor));
+        }
+    }
+}
+
 void FMaterialInstance::commit(DriverApi& driver) const {
     // update uniforms if needed
-    if (mUniforms.isDirty()) {
+    if (mUniforms.isDirty() || mHasStreamUniformAssociations) {
         driver.updateBufferObject(mUbHandle, mUniforms.toBufferDescriptor(driver), 0);
     }
     if (!mTextureParameters.empty()) {
         for (auto const& [binding, p]: mTextureParameters) {
             assert_invariant(p.texture);
             // TODO: figure out a way to do this more efficiently (isValid() is a hashmap lookup)
-            FEngine& engine = mMaterial->getEngine();
+            FEngine const& engine = mMaterial->getEngine();
             FILAMENT_CHECK_PRECONDITION(engine.isValid(p.texture))
                     << "Invalid texture still bound to MaterialInstance: '" << getName() << "'\n";
-            Handle<HwTexture> handle = p.texture->getHwHandleForSampling();
+            Handle<HwTexture> const handle = p.texture->getHwHandleForSampling();
             assert_invariant(handle);
             mDescriptorSet.setSampler(binding, handle, p.params);
         }
@@ -216,7 +238,7 @@ void FMaterialInstance::commit(DriverApi& driver) const {
 
 void FMaterialInstance::setParameter(std::string_view const name,
         Handle<HwTexture> texture, SamplerParams const params) {
-    auto binding = mMaterial->getSamplerBinding(name);
+    auto const binding = mMaterial->getSamplerBinding(name);
     mDescriptorSet.setSampler(binding, texture, params);
 }
 
@@ -243,16 +265,18 @@ void FMaterialInstance::setParameterImpl(std::string_view const name,
     }
 #endif
 
-    auto binding = mMaterial->getSamplerBinding(name);
+    auto const binding = mMaterial->getSamplerBinding(name);
     if (texture && texture->textureHandleCanMutate()) {
         mTextureParameters[binding] = { texture, sampler.getSamplerParams() };
     } else {
+        // Ensure to erase the binding from mTextureParameters since it will not
+        // be updated.
+        mTextureParameters.erase(binding);
+
         Handle<HwTexture> handle{};
         if (texture) {
             handle = texture->getHwHandleForSampling();
             assert_invariant(handle == texture->getHwHandle());
-        } else {
-            mTextureParameters.erase(binding);
         }
         mDescriptorSet.setSampler(binding, handle, sampler.getSamplerParams());
     }
@@ -328,13 +352,13 @@ const char* FMaterialInstance::getName() const noexcept {
 void FMaterialInstance::use(FEngine::DriverApi& driver) const {
 
     if (UTILS_UNLIKELY(mMissingSamplerDescriptors.any())) {
-        std::call_once(mMissingSamplersFlag, [this]() {
+        std::call_once(mMissingSamplersFlag, [this] {
             auto const& list = mMaterial->getSamplerInterfaceBlock().getSamplerInfoList();
             slog.w << "sampler parameters not set in MaterialInstance \""
                    << mName.c_str_safe() << "\" or Material \""
                    << mMaterial->getName().c_str_safe() << "\":\n";
             mMissingSamplerDescriptors.forEachSetBit([&list](descriptor_binding_t binding) {
-                auto pos = std::find_if(list.begin(), list.end(), [binding](const auto& item) {
+                auto const pos = std::find_if(list.begin(), list.end(), [binding](const auto& item) {
                     return item.binding == binding;
                 });
                 // just safety-check, should never fail
@@ -368,7 +392,7 @@ void FMaterialInstance::fixMissingSamplers() const {
         // here we need to set the samplers that are missing
         auto const& list = mMaterial->getSamplerInterfaceBlock().getSamplerInfoList();
         missingSamplerDescriptors.forEachSetBit([this, &list](descriptor_binding_t binding) {
-            auto pos = std::find_if(list.begin(), list.end(), [binding](const auto& item) {
+            auto const pos = std::find_if(list.begin(), list.end(), [binding](const auto& item) {
                 return item.binding == binding;
             });
 

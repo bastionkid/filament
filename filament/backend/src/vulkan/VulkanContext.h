@@ -17,7 +17,6 @@
 #ifndef TNT_FILAMENT_BACKEND_VULKANCONTEXT_H
 #define TNT_FILAMENT_BACKEND_VULKANCONTEXT_H
 
-#include "VulkanConstants.h"
 #include "vulkan/utils/Image.h"
 #include "vulkan/utils/Definitions.h"
 
@@ -30,19 +29,17 @@
 
 #include <bluevk/BlueVK.h>
 
-#include <memory>
-
 VK_DEFINE_HANDLE(VmaAllocator)
 VK_DEFINE_HANDLE(VmaPool)
 
 namespace filament::backend {
 
+struct VulkanCommandBuffer;
 struct VulkanRenderTarget;
 struct VulkanSwapChain;
 struct VulkanTexture;
 class VulkanStagePool;
 struct VulkanTimerQuery;
-struct VulkanCommandBuffer;
 
 struct VulkanAttachment {
     fvkmemory::resource_ptr<VulkanTexture> texture;
@@ -60,33 +57,6 @@ struct VulkanAttachment {
     VkImageSubresourceRange getSubresourceRange() const;
 };
 
-class VulkanTimestamps {
-public:
-    using QueryResult = std::array<uint64_t, 4>;
-
-    VulkanTimestamps(VkDevice device);
-    ~VulkanTimestamps();
-
-    // Not copy-able.
-    VulkanTimestamps(VulkanTimestamps const&) = delete;
-    VulkanTimestamps& operator=(VulkanTimestamps const&) = delete;
-
-    std::tuple<uint32_t, uint32_t> getNextQuery();
-    void clearQuery(uint32_t queryIndex);
-
-    void beginQuery(VulkanCommandBuffer const* commands,
-            fvkmemory::resource_ptr<VulkanTimerQuery> query);
-    void endQuery(VulkanCommandBuffer const* commands,
-            fvkmemory::resource_ptr<VulkanTimerQuery> query);
-    QueryResult getResult(fvkmemory::resource_ptr<VulkanTimerQuery> query);
-
-private:
-    VkDevice mDevice;
-    VkQueryPool mPool;
-    utils::bitset32 mUsed;
-    utils::Mutex mMutex;
-};
-
 struct VulkanRenderPass {
     // Between the begin and end command render pass we cache the command buffer
     VulkanCommandBuffer* commandBuffer;
@@ -100,19 +70,24 @@ struct VulkanRenderPass {
 // context are stored in VulkanPlatform.
 struct VulkanContext {
 public:
-    inline uint32_t selectMemoryType(uint32_t flags, VkFlags reqs) const {
-        if ((reqs & VK_MEMORY_PROPERTY_PROTECTED_BIT) != 0) {
-            assert_invariant(isProtectedMemorySupported() == true);
-        }
+    static uint32_t selectMemoryType(VkPhysicalDeviceMemoryProperties const& memoryProperties,
+            uint32_t flags, VkFlags reqs) {
         for (uint32_t i = 0; i < VK_MAX_MEMORY_TYPES; i++) {
             if (flags & 1) {
-                if ((mMemoryProperties.memoryTypes[i].propertyFlags & reqs) == reqs) {
+                if ((memoryProperties.memoryTypes[i].propertyFlags & reqs) == reqs) {
                     return i;
                 }
             }
             flags >>= 1;
         }
         return (uint32_t) VK_MAX_MEMORY_TYPES;
+    }
+
+    inline uint32_t selectMemoryType(uint32_t flags, VkFlags reqs) const {
+        if ((reqs & VK_MEMORY_PROPERTY_PROTECTED_BIT) != 0) {
+            assert_invariant(isProtectedMemorySupported());
+        }
+        return selectMemoryType(mMemoryProperties, flags, reqs);
     }
 
     inline fvkutils::VkFormatList const& getAttachmentDepthStencilFormats() const {
@@ -148,7 +123,7 @@ public:
     }
 
     inline bool isMultiviewEnabled() const noexcept {
-        return mMultiviewEnabled;
+        return mPhysicalDeviceVk11Features.multiview == VK_TRUE;
     }
 
     inline bool isClipDistanceSupported() const noexcept {
@@ -163,19 +138,37 @@ public:
         return mProtectedMemorySupported;
     }
 
+    inline bool isImageView2DOn3DImageSupported() const noexcept {
+        return mPortabilitySubsetFeatures.imageView2DOn3DImage == VK_TRUE;
+    }
+
+    inline bool isUnifiedMemoryArchitecture() const noexcept {
+        return mIsUnifiedMemoryArchitecture;
+    }
+
 private:
     VkPhysicalDeviceMemoryProperties mMemoryProperties = {};
     VkPhysicalDeviceProperties2 mPhysicalDeviceProperties = {
-        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,
+    };
+    VkPhysicalDeviceVulkan11Features mPhysicalDeviceVk11Features = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES,
     };
     VkPhysicalDeviceFeatures2 mPhysicalDeviceFeatures = {
-        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
+    };
+    VkPhysicalDevicePortabilitySubsetFeaturesKHR mPortabilitySubsetFeatures = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PORTABILITY_SUBSET_FEATURES_KHR,
+        // By default, on platforms where we don't have portability subset, then this feature must
+        // exists.  We only fill this struct only when portability subset is needed (i.e.
+        // non-conformant vulkan implementation).
+        .imageView2DOn3DImage = VK_TRUE,
     };
     bool mDebugMarkersSupported = false;
     bool mDebugUtilsSupported = false;
-    bool mMultiviewEnabled = false;
     bool mLazilyAllocatedMemorySupported = false;
     bool mProtectedMemorySupported = false;
+    bool mIsUnifiedMemoryArchitecture = false;
 
     fvkutils::VkFormatList mDepthStencilFormats;
     fvkutils::VkFormatList mBlittableDepthStencilFormats;

@@ -173,6 +173,13 @@ utils::io::sstream& CodeGenerator::generateCommonProlog(utils::io::sstream& out,
         case TargetApi::METAL:
             out << "#define TARGET_METAL_ENVIRONMENT\n";
             break;
+        // TODO: Handle webgpu here
+        case TargetApi::WEBGPU:
+            //For now, no differences so inherit the same changes.
+            // TODO Define a separte environment, OR relevant checks
+            out << "#define TARGET_VULKAN_ENVIRONMENT\n";
+            out << "#define TARGET_WEBGPU_ENVIRONMENT\n";
+            break;
         case TargetApi::ALL:
             // invalid should never happen
             break;
@@ -188,6 +195,7 @@ utils::io::sstream& CodeGenerator::generateCommonProlog(utils::io::sstream& out,
     }
 
     if (mTargetApi == TargetApi::VULKAN ||
+        mTargetApi == TargetApi::WEBGPU ||
         mTargetApi == TargetApi::METAL ||
         (mTargetApi == TargetApi::OPENGL && mShaderModel == ShaderModel::DESKTOP) ||
         mFeatureLevel >= FeatureLevel::FEATURE_LEVEL_2) {
@@ -295,25 +303,12 @@ utils::io::sstream& CodeGenerator::generateCommonProlog(utils::io::sstream& out,
     generateSpecializationConstant(out, "BACKEND_FEATURE_LEVEL",
             +ReservedSpecializationConstants::BACKEND_FEATURE_LEVEL, 1);
 
-    if (mTargetApi == TargetApi::VULKAN) {
-        // Note: This is a hack for a hack.
+    if (mTargetApi == TargetApi::WEBGPU) {
+        // Note: This is a revived hack for a hack.
         //
-        // Vulkan doesn't support sizing arrays within a block with specialization constants,
-        // as per this paragraph of the ARB_spir_v specification:
-        //      https://www.khronos.org/registry/OpenGL/extensions/ARB/ARB_gl_spirv.txt
-        //
-        //      Arrays inside a block may be sized with a specialization constant,
-        //      but the block will have a static layout. Changing the specialized size will
-        //      not re-layout the block. In the absence of explicit offsets, the layout will be
-        //      based on the default size of the array.
-        //
+        // WGSL doesn't support specialization constants as an array length
         // CONFIG_MAX_INSTANCES is only needed for WebGL, so we can replace it with a constant.
-        // CONFIG_FROXEL_BUFFER_HEIGHT can be hardcoded to 2048 because only 3% of Android devices
-        //                             only support 16KiB buffer or less (1024 lines).
-        //
-        // We *could* leave these as a specialization constant, but this triggers a crashing bug with
-        // some Adreno drivers on Android. see: https://github.com/google/filament/issues/6444
-        //
+        // More information at https://github.com/gpuweb/gpuweb/issues/572#issuecomment-649760005
         out << "const int CONFIG_MAX_INSTANCES = " << (int)CONFIG_MAX_INSTANCES << ";\n";
         out << "const int CONFIG_FROXEL_BUFFER_HEIGHT = 2048;\n";
     } else {
@@ -734,7 +729,10 @@ io::sstream& CodeGenerator::generateBufferInterfaceBlock(io::sstream& out, Shade
                 // in the GLSL 4.5 / ESSL 3.1 case, the set is not used and binding is unique
                 out << "binding = " << +binding << ", ";
                 break;
-
+            // TODO: Handle webgpu here
+            case TargetApi::WEBGPU:
+                out << "set = " << +set << ", binding = " << +binding << ", ";
+            break;
             case TargetApi::ALL:
                 // nonsensical, shouldn't happen.
                 break;
@@ -821,7 +819,10 @@ io::sstream& CodeGenerator::generateCommonSamplers(utils::io::sstream& out,
                     // GLSL 4.5 / ESSL 3.1 require the 'binding' layout qualifier
                     out << "layout(binding = " << getUniqueSamplerBindingPoint() << ") ";
                     break;
-
+                // TODO: Handle webgpu here
+                case TargetApi::WEBGPU:
+                    out << "layout(binding = " << +info.binding << ", set = " << +set << ") ";
+                break;
                 case TargetApi::ALL:
                     // should not happen
                     break;
@@ -936,6 +937,15 @@ utils::io::sstream& CodeGenerator::generateSpecializationConstant(utils::io::sst
     std::string const constantString = std::visit(SpecializationConstantFormatter(), value);
 
     static const char* types[] = { "int", "float", "bool" };
+
+    // Spec constants aren't fully supported in Tint,
+    //  workaround until https://issues.chromium.org/issues/42250586 is resolved
+    if (mTargetApi == TargetApi::WEBGPU) {
+        out << "layout (constant_id = " << id << ") const "
+                << types[value.index()] << " " << name << "_hack = " << constantString << ";\n"
+                << types[value.index()] << " " << name << " = " << name << "_hack;\n";
+        return out;
+    }
     if (mTargetLanguage == MaterialBuilderBase::TargetLanguage::SPIRV) {
         out << "layout (constant_id = " << id << ") const "
             << types[value.index()] << " " << name << " = " << constantString << ";\n";
@@ -1217,6 +1227,7 @@ char const* CodeGenerator::getConstantName(MaterialBuilder::Property property) n
         case Property::BENT_NORMAL:                 return "BENT_NORMAL";
         case Property::SPECULAR_FACTOR:             return "SPECULAR_FACTOR";
         case Property::SPECULAR_COLOR_FACTOR:       return "SPECULAR_COLOR_FACTOR";
+        case Property::SHADOW_STRENGTH:             return "SHADOW_STRENGTH";
     }
 }
 

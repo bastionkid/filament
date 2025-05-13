@@ -24,6 +24,7 @@
 #include <functional>
 #include <iostream>
 #include <iterator>
+#include <limits>
 #include <list>
 #include <map>
 #include <memory>
@@ -3734,6 +3735,14 @@ TEST(Table, MovedFromCallsFail) {
     t3 = std::move(t1);
     EXPECT_DEATH_IF_SUPPORTED(t3.contains(1), "moved-from");
   }
+}
+
+TEST(Table, MaxSizeOverflow) {
+  size_t overflow = (std::numeric_limits<size_t>::max)();
+  EXPECT_DEATH_IF_SUPPORTED(IntTable t(overflow), "Hash table size overflow");
+  IntTable t;
+  EXPECT_DEATH_IF_SUPPORTED(t.reserve(overflow), "Hash table size overflow");
+  EXPECT_DEATH_IF_SUPPORTED(t.rehash(overflow), "Hash table size overflow");
 }
 
 }  // namespace

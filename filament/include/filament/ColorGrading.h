@@ -21,13 +21,17 @@
 
 #include <filament/FilamentAPI.h>
 #include <filament/ToneMapper.h>
+#include <filament/ColorSpace.h>
 
 #include <utils/compiler.h>
 
 #include <math/mathfwd.h>
+#include <math/vec3.h>
+#include <math/vec4.h>
 
 #include <stdint.h>
 #include <stddef.h>
+#include <memory>
 
 namespace filament {
 
@@ -64,9 +68,8 @@ class ColorSpace;
  * Performance
  * ===========
  *
- * Creating a new ColorGrading object may be more expensive than other Filament objects as a
- * 3D LUT may need to be generated. The generation of a 3D LUT, if necessary, may happen on
- * the CPU.
+ * Creating a new ColorGrading object may be more expensive than other Filament objects as a LUT may
+ * need to be generated. The generation of this LUT, if necessary, may happen on the CPU.
  *
  * Ordering
  * ========
@@ -155,6 +158,9 @@ public:
          * 3D texture. For instance, a low quality level will use a 16x16x16 10 bit LUT, a medium
          * quality level will use a 32x32x32 10 bit LUT, a high quality will use a 32x32x32 16 bit
          * LUT, and a ultra quality will use a 64x64x64 16 bit LUT.
+         *
+         * This setting has no effect if generating a 1D LUT.
+         *
          * This overrides the values set by format() and dimensions().
          *
          * The default quality is medium.
@@ -169,6 +175,8 @@ public:
          * When color grading is implemented using a 3D LUT, this sets the texture format of
          * of the LUT. This overrides the value set by quality().
          *
+         * This setting has no effect if generating a 1D LUT.
+         *
          * The default is INTEGER
          *
          * @param format The desired format of the 3D LUT.
@@ -180,6 +188,8 @@ public:
         /**
          * When color grading is implemented using a 3D LUT, this sets the dimension of the LUT.
          * This overrides the value set by quality().
+         *
+         * This setting has no effect if generating a 1D LUT.
          *
          * The default is 32
          *
@@ -195,15 +205,14 @@ public:
          *
          * The default tone mapping operator is ACESLegacyToneMapper.
          *
-         * The specified tone mapper must have a lifecycle that exceeds the lifetime of
-         * this builder. Since the build(Engine&) method is synchronous, it is safe to
-         * delete the tone mapper object after that finishes executing.
+         * The ownership of the specified tone mapper is shared with the builder and built
+         * ColorGrading object.
          *
          * @param toneMapper The tone mapping operator to apply to the HDR color buffer
          *
          * @return This Builder, for chaining calls
          */
-        Builder& toneMapper(ToneMapper const* UTILS_NULLABLE toneMapper) noexcept;
+        Builder& toneMapper(std::shared_ptr<ToneMapper> toneMapper) noexcept;
 
         /**
          * Selects the tone mapping operator to apply to the HDR color buffer as the last
@@ -481,7 +490,118 @@ public:
         friend class FColorGrading;
     };
 
-protected:
+    /** Returns the quality level used to create this ColorGrading object. */
+    QualityLevel getQuality() const noexcept;
+
+    /** Returns the LUT format used to create this ColorGrading object. */
+    LutFormat getLutFormat() const noexcept;
+
+    /** Returns the LUT dimensions used to create this ColorGrading object. */
+    uint8_t getLutDimensions() const noexcept;
+
+    /** Returns the tone mapper used to create this ColorGrading object. */
+    const ToneMapper& getToneMapper() const noexcept;
+
+    /** Returns whether luminance scaling was enabled during creation. */
+    bool isLuminanceScalingEnabled() const noexcept;
+
+    /** Returns whether gamut mapping was enabled during creation. */
+    bool isGamutMappingEnabled() const noexcept;
+
+    /** Returns the exposure value used to create this ColorGrading object. */
+    float getExposure() const noexcept;
+
+    /** Returns the night adaptation value used to create this ColorGrading object. */
+    float getNightAdaptation() const noexcept;
+
+    /** Returns the white balance temperature used to create this ColorGrading object. */
+    float getWhiteBalanceTemperature() const noexcept;
+
+    /** Returns the white balance tint used to create this ColorGrading object. */
+    float getWhiteBalanceTint() const noexcept;
+
+    /** Returns the channel mixer output for the red channel. */
+    math::float3 getChannelMixerOutRed() const noexcept;
+
+    /** Returns the channel mixer output for the green channel. */
+    math::float3 getChannelMixerOutGreen() const noexcept;
+
+    /** Returns the channel mixer output for the blue channel. */
+    math::float3 getChannelMixerOutBlue() const noexcept;
+
+    /** Returns the shadows adjustment used to create this ColorGrading object. */
+    math::float3 getShadows() const noexcept;
+
+    /** Returns the midtones adjustment used to create this ColorGrading object. */
+    math::float3 getMidtones() const noexcept;
+
+    /** Returns the highlights adjustment used to create this ColorGrading object. */
+    math::float3 getHighlights() const noexcept;
+
+    /** Returns the shadow/midtones/highlights ranges used to create this ColorGrading object. */
+    math::float4 getShadowMidtonesHighlightsRanges() const noexcept;
+
+    /** Returns the slope adjustment used to create this ColorGrading object. */
+    math::float3 getSlope() const noexcept;
+
+    /** Returns the offset adjustment used to create this ColorGrading object. */
+    math::float3 getOffset() const noexcept;
+
+    /** Returns the power adjustment used to create this ColorGrading object. */
+    math::float3 getPower() const noexcept;
+
+    /** Returns the contrast value used to create this ColorGrading object. */
+    float getContrast() const noexcept;
+
+    /** Returns the vibrance value used to create this ColorGrading object. */
+    float getVibrance() const noexcept;
+
+    /** Returns the saturation value used to create this ColorGrading object. */
+    float getSaturation() const noexcept;
+
+    /** Returns the shadow gamma curve adjustment used to create this ColorGrading object. */
+    math::float3 getCurvesShadowGamma() const noexcept;
+
+    /** Returns the mid-point curve adjustment used to create this ColorGrading object. */
+    math::float3 getCurvesMidPoint() const noexcept;
+
+    /** Returns the highlight scale curve adjustment used to create this ColorGrading object. */
+    math::float3 getCurvesHighlightScale() const noexcept;
+
+    /** Returns the output color space used to create this ColorGrading object. */
+    const color::ColorSpace& getOutputColorSpace() const noexcept;
+
+protected :
+    struct Settings {
+        LutFormat lutFormat = LutFormat::INTEGER;
+        uint8_t lutDimensions = 32;
+        std::shared_ptr<ToneMapper> toneMapper = std::make_shared<ACESLegacyToneMapper>();
+        bool luminanceScaling = false;
+        bool gummapMapping = false;
+        float exposure = 0.0f;
+        float nightAdaptation = 0.0f;
+        float whiteBalanceTemperature = 0.0f;
+        float whiteBalanceTint = 0.0f;
+        math::float3 channelMixerOutRed{1.0f, 0.0f, 0.0f};
+        math::float3 channelMixerOutGreen{0.0f, 1.0f, 0.0f};
+        math::float3 channelMixerOutBlue{0.0f, 0.0f, 1.0f};
+        math::float3 shadows{1.0f, 1.0f, 1.0f};
+        math::float3 midtones{1.0f, 1.0f, 1.0f};
+        math::float3 highlights{1.0f, 1.0f, 1.0f};
+        math::float4 ShadowMidtonesHighlightsRanges{0.0f, 0.333f, 0.55f, 1.0f};
+        math::float3 slope{1.0f};
+        math::float3 offset{0.0f};
+        math::float3 power{1.0f};
+        float contrast = 1.0f;
+        float vibrance = 1.0f;
+        float saturation = 1.0f;
+        math::float3 curvesShadowGamma{1.0f, 1.0f, 1.0f};
+        math::float3 curvesMidPoint{1.0f, 1.0f, 1.0f};
+        math::float3 curvesHighlightScale{1.0f, 1.0f, 1.0f};
+        color::ColorSpace colorSpace = color::Rec709 - color::sRGB - color::D65;
+    };
+    Settings mSettings;
+
     // prevent heap allocation
     ~ColorGrading() = default;
 };

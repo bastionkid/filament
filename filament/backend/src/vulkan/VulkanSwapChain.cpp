@@ -32,6 +32,7 @@ VulkanSwapChain::VulkanSwapChain(VulkanPlatform* platform, VulkanContext const& 
         VulkanCommands* commands, VulkanStagePool& stagePool, void* nativeWindow, uint64_t flags,
         VkExtent2D extent)
     : mPlatform(platform),
+      mContext(context),
       mResourceManager(resourceManager),
       mCommands(commands),
       mAllocator(allocator),
@@ -40,6 +41,8 @@ VulkanSwapChain::VulkanSwapChain(VulkanPlatform* platform, VulkanContext const& 
       mFlushAndWaitOnResize(platform->getCustomization().flushAndWaitOnWindowResize),
       mTransitionSwapChainImageLayoutForPresent(
               platform->getCustomization().transitionSwapChainImageLayoutForPresent),
+      mLayerCount(1),
+      mCurrentSwapIndex(0),
       mAcquired(false),
       mIsFirstRenderPass(true) {
     swapChain = mPlatform->createSwapChain(nativeWindow, flags, extent);
@@ -75,18 +78,19 @@ void VulkanSwapChain::update() {
     }
     for (auto const color: bundle.colors) {
         auto colorTexture = fvkmemory::resource_ptr<VulkanTexture>::construct(mResourceManager,
-                device, mAllocator, mResourceManager, mCommands, color, VK_NULL_HANDLE,
-                bundle.colorFormat, 1, bundle.extent.width, bundle.extent.height, colorUsage,
-                mStagePool);
+                mContext, device, mAllocator, mResourceManager, mCommands, color, VK_NULL_HANDLE,
+                bundle.colorFormat, VK_NULL_HANDLE /*ycrcb */, 1, bundle.extent.width,
+                bundle.extent.height, bundle.layerCount, colorUsage, mStagePool);
         mColors.push_back(colorTexture);
     }
 
-    mDepth = fvkmemory::resource_ptr<VulkanTexture>::construct(mResourceManager, device,
-        mAllocator, mResourceManager, mCommands, bundle.depth, VK_NULL_HANDLE,
-        bundle.depthFormat, 1, bundle.extent.width, bundle.extent.height, depthUsage,
-        mStagePool);
+    mDepth = fvkmemory::resource_ptr<VulkanTexture>::construct(mResourceManager, mContext, device,
+            mAllocator, mResourceManager, mCommands, bundle.depth, VK_NULL_HANDLE,
+            bundle.depthFormat, VK_NULL_HANDLE /*ycrcb */, 1, bundle.extent.width,
+            bundle.extent.height, bundle.layerCount, depthUsage, mStagePool);
 
     mExtent = bundle.extent;
+    mLayerCount = bundle.layerCount;
 }
 
 void VulkanSwapChain::present() {
@@ -97,17 +101,12 @@ void VulkanSwapChain::present() {
                 .baseMipLevel = 0,
                 .levelCount = 1,
                 .baseArrayLayer = 0,
-                .layerCount = 1,
+                .layerCount = mLayerCount,
         };
         mColors[mCurrentSwapIndex]->transitionLayout(&commands, subresources, VulkanLayout::PRESENT);
     }
 
     mCommands->flush();
-
-    // call the image ready wait function
-    if (mExplicitImageReadyWait != nullptr) {
-        mExplicitImageReadyWait(swapChain);
-    }
 
     // We only present if it is not headless. No-op for headless.
     if (!mHeadless) {
@@ -142,7 +141,6 @@ void VulkanSwapChain::acquire(bool& resized) {
     VulkanPlatform::ImageSyncData imageSyncData;
     VkResult const result = mPlatform->acquire(swapChain, &imageSyncData);
     mCurrentSwapIndex = imageSyncData.imageIndex;
-    mExplicitImageReadyWait = imageSyncData.explicitImageReadyWait;
     FILAMENT_CHECK_POSTCONDITION(result == VK_SUCCESS || result == VK_SUBOPTIMAL_KHR)
             << "Cannot acquire in swapchain. error=" << static_cast<int32_t>(result);
     if (imageSyncData.imageReadySemaphore != VK_NULL_HANDLE) {

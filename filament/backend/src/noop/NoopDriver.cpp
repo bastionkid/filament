@@ -14,8 +14,15 @@
  * limitations under the License.
  */
 
+#include <backend/DriverEnums.h>
+#include <backend/Handle.h>
+
 #include "noop/NoopDriver.h"
 #include "CommandStreamDispatcher.h"
+
+#include <backend/Handle.h>
+
+#include <stdint.h>
 
 namespace filament::backend {
 
@@ -126,7 +133,7 @@ Handle<HwStream> NoopDriver::createStreamAcquired() {
     return {};
 }
 
-void NoopDriver::setAcquiredImage(Handle<HwStream> sh, void* image,
+void NoopDriver::setAcquiredImage(Handle<HwStream> sh, void* image, const math::mat3f& transform,
         CallbackHandler* handler, StreamCallback cb, void* userData) {
 }
 
@@ -233,6 +240,16 @@ size_t NoopDriver::getMaxUniformBufferSize() {
     return 16384u;
 }
 
+size_t NoopDriver::getMaxTextureSize(SamplerType target) {
+    // NoopDriver is being actively used for other purposes.  This needs to be resolved before we
+    // can change it to 2048. b/406832484
+    return 16384u;
+}
+
+size_t NoopDriver::getMaxArrayTextureLayers() {
+    return 256u;
+}
+
 void NoopDriver::updateIndexBuffer(Handle<HwIndexBuffer> ibh, BufferDescriptor&& p,
         uint32_t byteOffset) {
     scheduleDestroy(std::move(p));
@@ -242,6 +259,8 @@ void NoopDriver::updateBufferObject(Handle<HwBufferObject> ibh, BufferDescriptor
         uint32_t byteOffset) {
     scheduleDestroy(std::move(p));
 }
+
+void NoopDriver::registerBufferObjectStreams(Handle<HwBufferObject> boh, BufferObjectStreamDescriptor&& streams) { }
 
 void NoopDriver::updateBufferObjectUnsynchronized(Handle<HwBufferObject> ibh, BufferDescriptor&& p,
         uint32_t byteOffset) {
@@ -260,6 +279,9 @@ void NoopDriver::update3DImage(Handle<HwTexture> th,
         uint32_t width, uint32_t height, uint32_t depth,
         PixelBufferDescriptor&& data) {
     scheduleDestroy(std::move(data));
+}
+
+void NoopDriver::setupExternalImage2(Platform::ExternalImageHandleRef image) {
 }
 
 void NoopDriver::setupExternalImage(void* image) {

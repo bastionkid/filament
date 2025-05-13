@@ -90,6 +90,7 @@ bool ApiHandler::handleGetApiShader(struct mg_connection* conn,
     std::string_view const essl1("essl1");
     std::string_view const msl("msl");
     std::string_view const spirv("spirv");
+    std::string_view const wgsl("wgsl");
     size_t const qlength = strlen(request->query_string);
 
     char type[6] = {};
@@ -102,11 +103,13 @@ bool ApiHandler::handleGetApiShader(struct mg_connection* conn,
     char glindex[4] = {};
     char vkindex[4] = {};
     char metalindex[4] = {};
+    char wgpuindex[4] = {};
     mg_get_var(request->query_string, qlength, "glindex", glindex, sizeof(glindex));
     mg_get_var(request->query_string, qlength, "vkindex", vkindex, sizeof(vkindex));
     mg_get_var(request->query_string, qlength, "metalindex", metalindex, sizeof(metalindex));
+    mg_get_var(request->query_string, qlength, "wgpuindex", wgpuindex, sizeof(wgpuindex));
 
-    if (!glindex[0] && !vkindex[0] && !metalindex[0]) {
+    if (!glindex[0] && !vkindex[0] && !metalindex[0] && !wgpuindex[0]) {
         return error(__LINE__, uri);
     }
 
@@ -218,12 +221,48 @@ bool ApiHandler::handleGetApiShader(struct mg_connection* conn,
 
         return softError("Only MSL is supported.");
     }
+
+    if (wgpuindex[0]) {
+        ShaderExtractor extractor(ShaderLanguage::WGSL, result->package, result->packageSize);
+        if (!extractor.parse()) {
+            return error(__LINE__, uri);
+        }
+
+        FixedCapacityVector<ShaderInfo> info(getShaderCount(package, ChunkType::MaterialWgsl));
+        if (!getShaderInfo(package, info.data(), ChunkType::MaterialWgsl)) {
+            return error(__LINE__, uri);
+        }
+
+        int const shaderIndex = std::stoi(wgpuindex);
+        if (shaderIndex >= info.size()) {
+            return error(__LINE__, uri);
+        }
+
+        auto const& item = info[shaderIndex];
+        filaflat::ShaderContent content;
+        extractor.getShader(item.shaderModel, item.variant, item.pipelineStage, content);
+
+        if (language == wgsl) {
+            std::string const shader = mFormatter.format((char const*) content.data());
+            mg_printf(conn, kSuccessHeader.data(), "application/txt");
+            mg_write(conn, shader.c_str(), shader.size());
+            return true;
+        }
+
+        return softError("Only WGSL is supported.");
+    }
+
     return error(__LINE__, uri);
 }
 
 void ApiHandler::addMaterial(MaterialRecord const* material) {
+    updateMaterial(material->key);
+}
+
+void ApiHandler::updateMaterial(uint32_t key) {
     std::unique_lock const lock(mStatusMutex);
-    snprintf(statusMaterialId, sizeof(statusMaterialId), "%8.8x", material->key);
+    mCurrentStatus++;
+    snprintf(statusMaterialId, sizeof(statusMaterialId), "%8.8x", key);
     mStatusCondition.notify_all();
 }
 
@@ -288,8 +327,11 @@ bool ApiHandler::handlePost(CivetServer* server, struct mg_connection* conn) {
         sstream >> std::hex >> matid >> std::dec >> api >> shaderIndex;
         std::string const shader = sstream.str().substr(sstream.tellg());
 
-        mServer->handleEditCommand(matid, backend::Backend(api), shaderIndex, shader.c_str(),
-                shader.size());
+        if (!mServer->handleEditCommand(matid, backend::Backend(api), shaderIndex, shader.c_str(),
+                shader.size())) {
+            return error(__LINE__, uri);
+        }
+        updateMaterial(matid);
 
         mg_printf(conn, "HTTP/1.1 200 OK\r\nConnection: close");
         return true;
@@ -324,11 +366,12 @@ bool ApiHandler::handleGet(CivetServer* server, struct mg_connection* conn) {
                 return error(__LINE__, uri);
             }
             JsonWriter writer;
-            if (!writer.writeActiveInfo(package, mServer->mShaderLanguage, record.activeVariants)) {
+            if (!writer.writeActiveInfo(package, mServer->mShaderLanguage,
+                        mServer->mPreferredShaderModel, record.activeVariants)) {
                 return error(__LINE__, uri);
             }
             bool const last = (++index) == mServer->mMaterialRecords.size();
-            mg_printf(conn, "\"%8.8x\": %s %s", pair.first, writer.getJsonString(),
+            mg_printf(conn, "\"%8.8x\": %s%s", pair.first, writer.getJsonString(),
                     last ? "" : ",");
         }
         mg_printf(conn, "}");
@@ -348,6 +391,18 @@ bool ApiHandler::handleGet(CivetServer* server, struct mg_connection* conn) {
         return true;
     }
 
+    auto writeMaterialRecord = [&](JsonWriter* writer, MaterialRecord const* record) {
+        ChunkContainer package(record->package, record->packageSize);
+        if (!package.parse()) {
+            return error(__LINE__, uri);
+        }
+
+        if (!writer->writeMaterialInfo(package)) {
+            return error(__LINE__, uri);
+        }
+        return true;
+    };
+
     if (uri == "/api/materials") {
         std::unique_lock const lock(mServer->mMaterialRecordsMutex);
         mg_printf(conn, kSuccessHeader.data(), "application/json");
@@ -355,17 +410,11 @@ bool ApiHandler::handleGet(CivetServer* server, struct mg_connection* conn) {
         int index = 0;
         for (auto const& record: mServer->mMaterialRecords) {
             bool const last = (++index) == mServer->mMaterialRecords.size();
-
-            ChunkContainer package(record.second.package, record.second.packageSize);
-            if (!package.parse()) {
-                return error(__LINE__, uri);
-            }
-
+            auto const& mat = record.second;
             JsonWriter writer;
-            if (!writer.writeMaterialInfo(package)) {
-                return error(__LINE__, uri);
+            if (!writeMaterialRecord(&writer, &mat)) {
+                return false;
             }
-
             mg_printf(conn, "{ \"matid\": \"%8.8x\", %s } %s", record.first, writer.getJsonString(),
                     last ? "" : ",");
         }
@@ -378,15 +427,9 @@ bool ApiHandler::handleGet(CivetServer* server, struct mg_connection* conn) {
         if (!result) {
             return error(__LINE__, uri);
         }
-
-        ChunkContainer package(result->package, result->packageSize);
-        if (!package.parse()) {
-            return error(__LINE__, uri);
-        }
-
         JsonWriter writer;
-        if (!writer.writeMaterialInfo(package)) {
-            return error(__LINE__, uri);
+        if (!writeMaterialRecord(&writer, result)) {
+            return false;
         }
         mg_printf(conn, kSuccessHeader.data(), "application/json");
         mg_printf(conn, "{ %s }", writer.getJsonString());

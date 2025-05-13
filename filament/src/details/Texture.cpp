@@ -41,6 +41,8 @@
 #include <utils/algorithm.h>
 #include <utils/BitmaskEnum.h>
 #include <utils/compiler.h>
+#include <utils/CString.h>
+#include <utils/StaticString.h>
 #include <utils/debug.h>
 #include <utils/FixedCapacityVector.h>
 #include <utils/Panic.h>
@@ -152,10 +154,21 @@ Texture::Builder& Texture::Builder::name(const char* name, size_t const len) noe
     return BuilderNameMixin::name(name, len);
 }
 
-Texture* Texture::Builder::build(Engine& engine) {
-    FILAMENT_CHECK_PRECONDITION(Texture::isTextureFormatSupported(engine, mImpl->mFormat))
-            << "Texture format " << uint16_t(mImpl->mFormat) << " not supported on this platform";
+Texture::Builder& Texture::Builder::name(StaticString const& name) noexcept {
+    return BuilderNameMixin::name(name);
+}
 
+Texture* Texture::Builder::build(Engine& engine) {
+    if (mImpl->mTarget != SamplerType::SAMPLER_EXTERNAL) {
+        FILAMENT_CHECK_PRECONDITION(Texture::isTextureFormatSupported(engine, mImpl->mFormat))
+                << "Texture format " << uint16_t(mImpl->mFormat)
+                << " not supported on this platform, texture name="
+                << getNameOrDefault().c_str_safe();
+
+        FILAMENT_CHECK_PRECONDITION(mImpl->mWidth > 0 && mImpl->mHeight > 0)
+                << "Texture has invalid dimensions: (" << mImpl->mWidth << ", " << mImpl->mHeight
+                << "), texture name=" << getNameOrDefault().c_str_safe();
+    }
     const bool isProtectedTexturesSupported =
             downcast(engine).getDriverApi().isProtectedTexturesSupported();
     const bool useProtectedMemory = bool(mImpl->mUsage & TextureUsage::PROTECTED);
@@ -163,6 +176,40 @@ Texture* Texture::Builder::build(Engine& engine) {
     FILAMENT_CHECK_PRECONDITION(
             (isProtectedTexturesSupported && useProtectedMemory) || !useProtectedMemory)
             << "Texture is PROTECTED but protected textures are not supported";
+
+    size_t const maxTextureDimension = getMaxTextureSize(engine, mImpl->mTarget);
+    size_t const maxTextureDepth = (mImpl->mTarget == Sampler::SAMPLER_2D_ARRAY ||
+                                    mImpl->mTarget == Sampler::SAMPLER_CUBEMAP_ARRAY)
+                                       ? getMaxArrayTextureLayers(engine)
+                                       : maxTextureDimension;
+
+    FILAMENT_CHECK_PRECONDITION(
+            mImpl->mWidth <= maxTextureDimension &&
+            mImpl->mHeight <= maxTextureDimension &&
+            mImpl->mDepth <= maxTextureDepth) << "Texture dimensions out of range: "
+                    << "width= " << mImpl->mWidth << " (>" << maxTextureDimension << ")"
+                    <<", height= " << mImpl->mHeight << " (>" << maxTextureDimension << ")"
+                    << ", depth= " << mImpl->mDepth << " (>" << maxTextureDepth << ")";
+
+    const auto validateSamplerType = [&engine = downcast(engine)](SamplerType const sampler) -> bool {
+        switch (sampler) {
+            case SamplerType::SAMPLER_2D:
+            case SamplerType::SAMPLER_CUBEMAP:
+            case SamplerType::SAMPLER_EXTERNAL:
+                return true;
+            case SamplerType::SAMPLER_3D:
+            case SamplerType::SAMPLER_2D_ARRAY:
+                return engine.hasFeatureLevel(FeatureLevel::FEATURE_LEVEL_1);
+            case SamplerType::SAMPLER_CUBEMAP_ARRAY:
+                return engine.hasFeatureLevel(FeatureLevel::FEATURE_LEVEL_2);
+        }
+        return false;
+    };
+
+    // Validate sampler before any further interaction with it.
+    FILAMENT_CHECK_PRECONDITION(validateSamplerType(mImpl->mTarget))
+            << "SamplerType " << uint8_t(mImpl->mTarget) << " not support at feature level "
+            << uint8_t(engine.getActiveFeatureLevel());
 
     // SAMPLER_EXTERNAL implies imported.
     if (mImpl->mTarget == SamplerType::SAMPLER_EXTERNAL) {
@@ -215,24 +262,6 @@ Texture* Texture::Builder::build(Engine& engine) {
     #if defined(__EMSCRIPTEN__)
     FILAMENT_CHECK_PRECONDITION(!swizzled) << "WebGL does not support texture swizzling.";
     #endif
-
-    auto validateSamplerType = [&engine = downcast(engine)](SamplerType const sampler) -> bool {
-        switch (sampler) {
-            case SamplerType::SAMPLER_2D:
-            case SamplerType::SAMPLER_CUBEMAP:
-            case SamplerType::SAMPLER_EXTERNAL:
-                return true;
-            case SamplerType::SAMPLER_3D:
-            case SamplerType::SAMPLER_2D_ARRAY:
-                return engine.hasFeatureLevel(FeatureLevel::FEATURE_LEVEL_1);
-            case SamplerType::SAMPLER_CUBEMAP_ARRAY:
-                return engine.hasFeatureLevel(FeatureLevel::FEATURE_LEVEL_2);
-        }
-    };
-
-    FILAMENT_CHECK_PRECONDITION(validateSamplerType(mImpl->mTarget))
-            << "SamplerType " << uint8_t(mImpl->mTarget) << " not support at feature level "
-            << uint8_t(engine.getActiveFeatureLevel());
 
     FILAMENT_CHECK_PRECONDITION((swizzled && sampleable) || !swizzled)
             << "Swizzled texture must be SAMPLEABLE";
@@ -469,6 +498,26 @@ void FTexture::setImage(FEngine& engine, size_t const level,
     const_cast<FTexture*>(this)->updateLodRange(level);
 }
 
+void FTexture::setExternalImage(FEngine& engine, ExternalImageHandleRef image) noexcept {
+    FILAMENT_CHECK_PRECONDITION(mExternal) << "The texture must be external.";
+
+    // The call to setupExternalImage2 is synchronous, and allows the driver to take ownership of the
+    // external image on this thread, if necessary.
+    auto& api = engine.getDriverApi();
+    api.setupExternalImage2(image);
+
+    auto texture = api.createTextureExternalImage2(mTarget, mFormat, mWidth, mHeight, mUsage, image);
+
+    if (mTextureIsSwizzled) {
+        auto const& s = mSwizzle;
+        auto swizzleView = api.createTextureViewSwizzle(texture, s[0], s[1], s[2], s[3]);
+        api.destroyTexture(texture);
+        texture = swizzleView;
+    }
+
+    setHandles(texture);
+}
+
 void FTexture::setExternalImage(FEngine& engine, void* image) noexcept {
     FILAMENT_CHECK_PRECONDITION(mExternal) << "The texture must be external.";
 
@@ -638,12 +687,24 @@ bool FTexture::isTextureFormatSupported(FEngine& engine, InternalFormat const fo
     return engine.getDriverApi().isTextureFormatSupported(format);
 }
 
+bool FTexture::isTextureFormatMipmappable(FEngine& engine, InternalFormat const format) noexcept {
+    return engine.getDriverApi().isTextureFormatMipmappable(format);
+}
+
 bool FTexture::isProtectedTexturesSupported(FEngine& engine) noexcept {
     return engine.getDriverApi().isProtectedTexturesSupported();
 }
 
 bool FTexture::isTextureSwizzleSupported(FEngine& engine) noexcept {
     return engine.getDriverApi().isTextureSwizzleSupported();
+}
+
+size_t FTexture::getMaxTextureSize(FEngine& engine, Sampler type) noexcept {
+    return engine.getDriverApi().getMaxTextureSize(type);
+}
+
+size_t FTexture::getMaxArrayTextureLayers(FEngine& engine) noexcept {
+    return engine.getDriverApi().getMaxArrayTextureLayers();
 }
 
 size_t FTexture::computeTextureDataSize(Format const format, Type const type,

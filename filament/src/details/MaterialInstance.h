@@ -65,6 +65,8 @@ public:
 
     void terminate(FEngine& engine);
 
+    void commitStreamUniformAssociations(FEngine::DriverApi& driver);
+    
     void commit(FEngine::DriverApi& driver) const;
 
     void use(FEngine::DriverApi& driver) const;
@@ -93,6 +95,8 @@ public:
     bool hasScissor() const noexcept { return mHasScissor; }
 
     backend::CullingMode getCullingMode() const noexcept { return mCulling; }
+
+    backend::CullingMode getShadowCullingMode() const noexcept { return mShadowCulling; }
 
     bool isColorWriteEnabled() const noexcept { return mColorWrite; }
 
@@ -135,7 +139,15 @@ public:
 
     void setTransparencyMode(TransparencyMode mode) noexcept;
 
-    void setCullingMode(CullingMode const culling) noexcept { mCulling = culling; }
+    void setCullingMode(CullingMode const culling) noexcept {
+        mCulling = culling;
+        mShadowCulling = culling;
+    }
+
+    void setCullingMode(CullingMode const color, CullingMode const shadow) noexcept {
+        mCulling = color;
+        mShadowCulling = shadow;
+    }
 
     void setColorWrite(bool const enable) noexcept { mColorWrite = enable; }
 
@@ -262,6 +274,7 @@ private:
     tsl::robin_map<backend::descriptor_binding_t, TextureParameter> mTextureParameters;
     mutable DescriptorSet mDescriptorSet;
     UniformBuffer mUniforms;
+    bool mHasStreamUniformAssociations = false;
 
     backend::PolygonOffset mPolygonOffset{};
     backend::StencilState mStencilState{};
@@ -271,7 +284,9 @@ private:
     float mSpecularAntiAliasingThreshold = 0.0f;
 
     backend::CullingMode mCulling : 2;
+    backend::CullingMode mShadowCulling : 2;
     backend::RasterState::DepthFunc mDepthFunc : 3;
+
     bool mColorWrite : 1;
     bool mDepthWrite : 1;
     bool mHasScissor : 1;
@@ -283,8 +298,8 @@ private:
 
     // Scissor rectangle is specified as: Left Bottom Width Height.
     backend::Viewport mScissorRect = { 0, 0,
-            (uint32_t)std::numeric_limits<int32_t>::max(),
-            (uint32_t)std::numeric_limits<int32_t>::max()
+            uint32_t(std::numeric_limits<int32_t>::max()),
+            uint32_t(std::numeric_limits<int32_t>::max())
     };
 
     utils::CString mName;

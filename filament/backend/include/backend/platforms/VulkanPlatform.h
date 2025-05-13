@@ -18,6 +18,7 @@
 #define TNT_FILAMENT_BACKEND_PLATFORMS_VULKANPLATFORM_H
 
 #include <backend/Platform.h>
+#include <backend/DriverEnums.h>
 
 #include <bluevk/BlueVK.h>
 
@@ -71,6 +72,9 @@ public:
         // where the gpu only has one graphics queue. Then the client needs to ensure that no
         // concurrent access can occur.
         uint32_t graphicsQueueIndex = 0xFFFFFFFF;
+        bool debugUtilsSupported = false;
+        bool debugMarkersSupported = false;
+        bool multiviewSupported = false;
     };
 
     /**
@@ -88,6 +92,7 @@ public:
         VkFormat colorFormat = VK_FORMAT_UNDEFINED;
         VkFormat depthFormat = VK_FORMAT_UNDEFINED;
         VkExtent2D extent = {0, 0};
+        uint32_t layerCount = 1;
         bool isProtected = false;
     };
 
@@ -99,10 +104,6 @@ public:
 
         // Semaphore to be signaled once the image is available.
         VkSemaphore imageReadySemaphore = VK_NULL_HANDLE;
-
-        // A function called right before vkQueueSubmit. After this call, the image must be 
-        // available. This pointer can be null if imageReadySemaphore is not VK_NULL_HANDLE.
-        std::function<void(SwapChainPtr handle)> explicitImageReadyWait = nullptr;
     };
 
     VulkanPlatform();
@@ -294,6 +295,16 @@ public:
 
     struct ExternalImageMetadata {
         /**
+         * The Filament texture format.
+         */
+        TextureFormat filamentFormat;
+
+        /**
+         * The Filament texture usage.
+         */
+        TextureUsage filamentUsage;
+
+        /**
          * The width of the external image
          */
         uint32_t width;
@@ -309,14 +320,14 @@ public:
         uint32_t layers;
 
         /**
+         * The numbers of samples per texel
+         */
+        VkSampleCountFlagBits samples;
+
+        /**
          * The format of the external image
          */
         VkFormat format;
-
-        /**
-         * An external buffer can be protected. This tells you if it is.
-         */
-        bool isProtected;
 
         /**
          * The type of external format (opaque int) if used.
@@ -337,23 +348,75 @@ public:
          * Heap information
          */
         uint32_t memoryTypeBits;
-    };
-    virtual ExternalImageMetadata getExternalImageMetadata(void* externalImage);
 
-    using ImageData = std::pair<VkImage, VkDeviceMemory>;
-    virtual ImageData createExternalImage(void* externalImage,
-            const ExternalImageMetadata& metadata);
+        /**
+         * Ycbcr conversion components
+         */
+        VkComponentMapping ycbcrConversionComponents;
+
+        /**
+         * Ycbcr model
+         */
+        VkSamplerYcbcrModelConversion ycbcrModel;
+
+        /**
+         * Ycbcr range
+         */
+        VkSamplerYcbcrRange ycbcrRange;
+
+        /**
+         * Ycbcr x chroma offset
+         */
+        VkChromaLocation xChromaOffset;
+
+        /**
+         * Ycbcr y chroma offset
+         */
+        VkChromaLocation yChromaOffset;
+    };
+
+
+    // Note that the image metadata might change per-frame, hence we need a method for extracting
+    // it.
+    virtual ExternalImageMetadata extractExternalImageMetadata(ExternalImageHandleRef image) const {
+        return {};
+    }
+
+    struct ImageData {
+        struct Bundle {
+            VkImage image = VK_NULL_HANDLE;
+            VkDeviceMemory memory = VK_NULL_HANDLE;
+
+            inline bool valid() const noexcept {
+                return image != VK_NULL_HANDLE;
+            }
+        };
+        // It's possible for the external image to also have a known VK format. We need to create an
+        // image for that in case we are not looking to use an external "sampler" with this image.
+        Bundle internal;
+
+        // If we get a externalFormat in the metadata, then we should create an image with
+        // VK_FORMAT_UNDEFINED
+        Bundle external;
+    };
+
+    virtual ImageData createVkImageFromExternal(ExternalImageHandleRef image) const {
+        return {};
+    }
+
+protected:
+    virtual ExtensionSet getSwapchainInstanceExtensions() const;
+
+    using SurfaceBundle = std::tuple<VkSurfaceKHR, VkExtent2D>;
+    virtual SurfaceBundle createVkSurfaceKHR(void* nativeWindow, VkInstance instance,
+            uint64_t flags) const noexcept;
 
 private:
-    static ExtensionSet getSwapchainInstanceExtensions();
-    static ExternalImageMetadata getExternalImageMetadataImpl(void* externalImage,
-            VkDevice device);
-    static ImageData createExternalImageImpl(void* externalImage, VkDevice device,
-            const VkAllocationCallbacks* allocator, const ExternalImageMetadata& metadata);
+    // Platform dependent helper methods
+    static ExtensionSet getSwapchainInstanceExtensionsImpl();
 
     // Platform dependent helper methods
-    using SurfaceBundle = std::tuple<VkSurfaceKHR, VkExtent2D>;
-    static SurfaceBundle createVkSurfaceKHR(void* nativeWindow, VkInstance instance,
+    static SurfaceBundle createVkSurfaceKHRImpl(void* nativeWindow, VkInstance instance,
             uint64_t flags) noexcept;
 
     friend struct VulkanPlatformPrivate;

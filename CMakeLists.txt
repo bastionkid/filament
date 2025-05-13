@@ -47,6 +47,8 @@ option(FILAMENT_ENABLE_MULTIVIEW "Enable multiview for Filament" OFF)
 
 option(FILAMENT_SUPPORTS_OSMESA "Enable OSMesa (headless GL context) for Filament" OFF)
 
+option(FILAMENT_ENABLE_FGVIEWER "Enable the frame graph viewer" OFF)
+
 set(FILAMENT_NDK_VERSION "" CACHE STRING
     "Android NDK version or version prefix to be used when building for Android."
 )
@@ -137,14 +139,14 @@ else()
     set(LINUX FALSE)
 endif()
 
-if (LINUX)
-    if (NOT FILAMENT_OSMESA_PATH STREQUAL "")
-        if (NOT EXISTS ${FILAMENT_OSMESA_PATH}/)
-            message(FATAL_ERROR "Cannot find specified OSMesa build directory: ${FILAMENT_OSMESA_PATH}")
-        endif()
-        set(FILAMENT_SUPPORTS_OSMESA TRUE)
+if (NOT FILAMENT_OSMESA_PATH STREQUAL "")
+    if (NOT EXISTS ${FILAMENT_OSMESA_PATH}/)
+        message(FATAL_ERROR "Cannot find specified OSMesa build directory: ${FILAMENT_OSMESA_PATH}")
     endif()
+    set(FILAMENT_SUPPORTS_OSMESA TRUE)
+endif()
 
+if (LINUX)
     if (FILAMENT_SUPPORTS_WAYLAND)
         add_definitions(-DFILAMENT_SUPPORTS_WAYLAND)
         set(FILAMENT_SUPPORTS_X11 FALSE)
@@ -180,6 +182,12 @@ endif()
 
 if (NOT ANDROID AND NOT WEBGL AND NOT IOS AND NOT FILAMENT_LINUX_IS_MOBILE)
     set(IS_HOST_PLATFORM TRUE)
+endif()
+
+if (APPLE)
+    if (FILAMENT_SUPPORTS_OSMESA)
+        add_definitions(-DFILAMENT_SUPPORTS_OSMESA)
+    endif()
 endif()
 
 if (WIN32)
@@ -326,6 +334,9 @@ if (MSVC)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXX_STANDARD} /W0 /Zc:__cplusplus")
 else()
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXX_STANDARD} -fstrict-aliasing -Wno-unknown-pragmas -Wno-unused-function -Wno-deprecated-declarations")
+    if (APPLE)
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-nullability-extension")
+    endif()
 endif()
 
 if (FILAMENT_USE_EXTERNAL_GLES3)
@@ -517,6 +528,11 @@ if (FILAMENT_SUPPORTS_VULKAN)
     add_definitions(-DFILAMENT_DRIVER_SUPPORTS_VULKAN)
 endif()
 
+if (FILAMENT_SUPPORTS_WEBGPU)
+    message(AUTHOR_WARNING "WebGPU is in development stage and broken at this stage. Its support is very limited.")
+    add_definitions(-DFILAMENT_SUPPORTS_WEBGPU)
+endif()
+
 # Build with Metal support on non-WebGL Apple platforms.
 if (APPLE AND NOT WEBGL)
     option(FILAMENT_SUPPORTS_METAL "Include the Metal backend" ON)
@@ -528,20 +544,17 @@ if (FILAMENT_SUPPORTS_METAL)
 endif()
 
 # Building filamat increases build times and isn't required for web, so turn it off by default.
-if (NOT WEBGL)
+if (NOT WEBGL AND NOT IOS)
     option(FILAMENT_BUILD_FILAMAT "Build filamat and JNI buildings" ON)
 else()
     option(FILAMENT_BUILD_FILAMAT "Build filamat and JNI buildings" OFF)
 endif()
 
-# By default, link in matdbg/fgviewer for Desktop + Debug only since it pulls in filamat and a web server.
+# By default, link in matdbg for Desktop + Debug only since it pulls in filamat and a web server.
 if (CMAKE_BUILD_TYPE STREQUAL "Debug" AND IS_HOST_PLATFORM)
     option(FILAMENT_ENABLE_MATDBG "Enable the material debugger" ON)
-    # TODO: Uncomment below when fgviewer is ready
-    # option(FILAMENT_ENABLE_FGVIEWER "Enable the frame graph viewer" ON)
 else()
     option(FILAMENT_ENABLE_MATDBG "Enable the material debugger" OFF)
-    option(FILAMENT_ENABLE_FGVIEWER "Enable the frame graph viewer" OFF)
 endif()
 
 # Only optimize materials in Release mode (so error message lines match the source code)
@@ -595,6 +608,14 @@ if (FILAMENT_SUPPORTS_VULKAN)
 endif()
 if (FILAMENT_SUPPORTS_METAL)
     set(MATC_API_FLAGS ${MATC_API_FLAGS} -a metal)
+endif()
+
+# With WebGPU, push constants are not supported. Skinning uses them.
+# WebGPU has a proposal to add push constants at https://github.com/gpuweb/gpuweb/blob/main/proposals/push-constants.md
+# With WebGPU, Tint does not support ClipDistance which is used in Stereo.  Mentioned in comment
+# https://github.com/google/dawn/blob/855d17b08abdf02f9142bf5a8f14d0ea088810a4/src/tint/lang/spirv/reader/ast_parser/function.cc#L4434
+if (FILAMENT_SUPPORTS_WEBGPU)
+    set(MATC_API_FLAGS ${MATC_API_FLAGS} -a webgpu --variant-filter=skinning,stereo)
 endif()
 
 # Disable ESSL 1.0 code generation.
@@ -667,10 +688,6 @@ function(list_licenses OUTPUT MODULES)
 endfunction()
 
 set(COMBINE_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/build/linux/combine-static-libs.sh")
-if (WIN32)
-    set(COMBINE_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/build/windows/combine-static-libs.bat")
-    set(CMAKE_AR "lib.exe")
-endif()
 
 # Add a custom command to TARGET that combines the static libraries in DEPS into a single archive.
 function(combine_static_libs TARGET OUTPUT DEPS)
@@ -685,12 +702,22 @@ function(combine_static_libs TARGET OUTPUT DEPS)
         endif()
     endforeach()
 
-    add_custom_command(
-        TARGET ${TARGET} POST_BUILD
-        COMMAND "${COMBINE_SCRIPT}" "${CMAKE_AR}" "${OUTPUT}" ${DEPS_FILES}
-        COMMENT "Combining ${target} dependencies into single shared library"
-        VERBATIM
-    )
+    if (WIN32)
+        add_custom_command(
+            TARGET ${TARGET} POST_BUILD
+            COMMAND lib.exe /nologo /out:temp.lib ${DEPS_FILES}
+            COMMAND "${CMAKE_COMMAND}" -E rename temp.lib ${OUTPUT}
+            COMMENT "Combining ${target} dependencies into single shared library"
+            VERBATIM
+        )
+    else()
+        add_custom_command(
+            TARGET ${TARGET} POST_BUILD
+            COMMAND "${COMBINE_SCRIPT}" "${CMAKE_AR}" "${OUTPUT}" ${DEPS_FILES}
+            COMMENT "Combining ${target} dependencies into single shared library"
+            VERBATIM
+        )
+    endif()
 endfunction()
 
 # ==================================================================================================
@@ -759,8 +786,8 @@ add_subdirectory(${LIBRARIES}/mathio)
 add_subdirectory(${LIBRARIES}/uberz)
 add_subdirectory(${LIBRARIES}/utils)
 add_subdirectory(${LIBRARIES}/viewer)
-add_subdirectory(${FILAMENT}/filament)
 add_subdirectory(${FILAMENT}/shaders)
+add_subdirectory(${EXTERNAL}/abseil/tnt)
 add_subdirectory(${EXTERNAL}/basisu/tnt)
 add_subdirectory(${EXTERNAL}/civetweb/tnt)
 add_subdirectory(${EXTERNAL}/imgui/tnt)
@@ -774,6 +801,7 @@ add_subdirectory(${EXTERNAL}/draco/tnt)
 add_subdirectory(${EXTERNAL}/jsmn/tnt)
 add_subdirectory(${EXTERNAL}/stb/tnt)
 add_subdirectory(${EXTERNAL}/getopt)
+add_subdirectory(${EXTERNAL}/perfetto/tnt)
 
 # Note that this has to be placed after mikktspace in order for combine_static_libs to work.
 add_subdirectory(${LIBRARIES}/geometry)
@@ -781,6 +809,7 @@ add_subdirectory(${LIBRARIES}/geometry)
 if (FILAMENT_BUILD_FILAMAT OR IS_HOST_PLATFORM)
     # spirv-tools must come before filamat, as filamat relies on the presence of the
     # spirv-tools_SOURCE_DIR variable.
+    set(SPIRV-Headers_SOURCE_DIR ${EXTERNAL}/spirv-headers)
     add_subdirectory(${EXTERNAL}/spirv-tools)
     add_subdirectory(${EXTERNAL}/glslang/tnt)
     add_subdirectory(${EXTERNAL}/spirv-cross/tnt)
@@ -790,11 +819,10 @@ if (FILAMENT_BUILD_FILAMAT OR IS_HOST_PLATFORM)
     if (FILAMENT_ENABLE_MATDBG OR IS_HOST_PLATFORM)
         add_subdirectory(${LIBRARIES}/matdbg)
     endif()
+endif()
 
-    # TODO: Uncomment below when fgviewer is ready
-    # if (FILAMENT_ENABLE_FGVIEWER OR IS_HOST_PLATFORM)
-    #     add_subdirectory(${LIBRARIES}/fgviewer)
-    # endif()
+if (FILAMENT_ENABLE_FGVIEWER)
+    add_subdirectory(${LIBRARIES}/fgviewer)
 endif()
 
 if (FILAMENT_SUPPORTS_VULKAN)
@@ -803,6 +831,13 @@ if (FILAMENT_SUPPORTS_VULKAN)
     set(SPIRV_HEADERS_SKIP_EXAMPLES ON)
     add_subdirectory(${EXTERNAL}/spirv-headers)
 endif()
+
+if (FILAMENT_SUPPORTS_WEBGPU)
+    add_subdirectory(${EXTERNAL}/dawn/tnt/)
+endif()
+
+# Add filament after dawn, since filament/backend depends on dawn targets.
+add_subdirectory(${FILAMENT}/filament)
 
 set(FILAMENT_SAMPLES_BINARY_DIR ${PROJECT_BINARY_DIR}/samples)
 

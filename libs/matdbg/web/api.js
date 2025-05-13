@@ -39,6 +39,9 @@ async function fetchShaderCode(matid, backend, language, index) {
         case "metal":
             query = `type=${language}&metalindex=${index}`;
             break;
+        case "webgpu":
+            query = `type=${language}&wgpuindex=${index}`;
+            break;
     }
     return await _fetchText(`api/shader?matid=${matid}&${query}`);
 }
@@ -68,14 +71,13 @@ async function fetchMatIds() {
 }
 
 async function queryActiveShaders() {
-    const activeMaterials = await _fetchJson("api/active");
+    const activeVariants = await _fetchJson("api/active");
     const actives = {};
-    for (matid in activeMaterials) {
-        const backend = activeMaterials[matid][0];
-        const variants = activeMaterials[matid].slice(1);
-        actives[matid] = {
-            backend, variants
-        };
+    for (matid in activeVariants) {
+        const backend = activeVariants[matid][0];
+        const shaderModel = activeVariants[matid][1];
+        const variants = activeVariants[matid].slice(2);
+        actives[matid] = { backend, shaderModel, variants };
     }
     return actives;
 }
@@ -89,6 +91,7 @@ function rebuildMaterial(materialId, backend, shaderIndex, editedText) {
             break;
         case "vulkan": api = 2; break;
         case "metal":  api = 3; break;
+        case "webgpu":  api = 4; break;
     }
     return new Promise((ok, fail) => {
         const req = new XMLHttpRequest();

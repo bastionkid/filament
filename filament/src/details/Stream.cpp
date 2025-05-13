@@ -24,6 +24,7 @@
 #include <backend/PixelBufferDescriptor.h>
 
 #include <utils/CString.h>
+#include <utils/StaticString.h>
 #include <utils/Panic.h>
 #include <filament/Stream.h>
 
@@ -65,6 +66,10 @@ Stream::Builder& Stream::Builder::name(const char* name, size_t const len) noexc
     return BuilderNameMixin::name(name, len);
 }
 
+Stream::Builder& Stream::Builder::name(utils::StaticString const& name) noexcept {
+    return BuilderNameMixin::name(name);
+}
+
 Stream* Stream::Builder::build(Engine& engine) {
     return downcast(engine).createStream(*this);
 }
@@ -95,13 +100,13 @@ void FStream::terminate(FEngine& engine) noexcept {
 }
 
 void FStream::setAcquiredImage(void* image,
-        Callback const callback, void* userdata) noexcept {
-    mEngine.getDriverApi().setAcquiredImage(mStreamHandle, image, nullptr, callback, userdata);
+    Callback const callback, void* userdata, math::mat3f const& transform) noexcept {
+    mEngine.getDriverApi().setAcquiredImage(mStreamHandle, image, transform, nullptr, callback, userdata);
 }
 
 void FStream::setAcquiredImage(void* image,
-        CallbackHandler* handler, Callback const callback, void* userdata) noexcept {
-    mEngine.getDriverApi().setAcquiredImage(mStreamHandle, image, handler, callback, userdata);
+    CallbackHandler* handler, Callback const callback, void* userdata, math::mat3f const& transform) noexcept {
+    mEngine.getDriverApi().setAcquiredImage(mStreamHandle, image, transform, handler, callback, userdata);
 }
 
 void FStream::setDimensions(uint32_t const width, uint32_t const height) noexcept {

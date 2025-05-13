@@ -61,6 +61,8 @@
 #include <filament/Texture.h>
 #include <filament/VertexBuffer.h>
 
+#include <backend/DriverEnums.h>
+
 #include <utils/Allocator.h>
 #include <utils/compiler.h>
 #include <utils/CountDownLatch.h>
@@ -122,12 +124,11 @@ class ResourceAllocator;
  */
 class FEngine : public Engine {
 public:
-
-    inline void* operator new(std::size_t const size) noexcept {
+    void* operator new(std::size_t const size) noexcept {
         return utils::aligned_alloc(size, alignof(FEngine));
     }
 
-    inline void operator delete(void* p) noexcept {
+    void operator delete(void* p) noexcept {
         utils::aligned_free(p);
     }
 
@@ -490,7 +491,7 @@ public:
     backend::Handle<backend::HwTexture> getOneTextureArray() const { return mDummyOneTextureArray; }
     backend::Handle<backend::HwTexture> getZeroTextureArray() const { return mDummyZeroTextureArray; }
 
-    static constexpr const size_t MiB = 1024u * 1024u;
+    static constexpr size_t MiB = 1024u * 1024u;
     size_t getMinCommandBufferSize() const noexcept { return mConfig.minCommandBufferSizeMB * MiB; }
     size_t getCommandBufferSize() const noexcept { return mConfig.commandBufferSizeMB * MiB; }
     size_t getPerFrameCommandsSize() const noexcept { return mConfig.perFrameCommandsSizeMB * MiB; }
@@ -510,15 +511,15 @@ public:
     void resetBackendState() noexcept;
 #endif
 
+    backend::Driver& getDriver() const noexcept { return *mDriver; }
+
 private:
     explicit FEngine(Builder const& builder);
     void init();
     void shutdown();
 
     int loop();
-    void flushCommandBuffer(backend::CommandBufferQueue& commandBufferQueue);
-
-    backend::Driver& getDriver() const noexcept { return *mDriver; }
+    void flushCommandBuffer(backend::CommandBufferQueue& commandBufferQueue) const;
 
     template<typename T>
     bool isValid(const T* ptr, ResourceList<T> const& list) const;
@@ -687,14 +688,15 @@ public:
     struct {
         struct {
             struct {
+                bool use_1d_lut = false;
+            } color_grading;
+            struct {
                 bool use_shadow_atlas = false;
             } shadows;
             struct {
-#ifndef NDEBUG
-                bool assert_material_instance_in_use = true;
-#else
+                // TODO: default the following two flags to true.
                 bool assert_material_instance_in_use = false;
-#endif
+                bool assert_destroy_material_before_material_instance = false;
             } debug;
         } engine;
         struct {
@@ -703,6 +705,7 @@ public:
             } opengl;
             bool disable_parallel_shader_compile = false;
             bool disable_handle_use_after_free_check = false;
+            bool disable_heap_handle_tags = true; // FIXME: this should be false
         } backend;
     } features;
 
@@ -713,22 +716,31 @@ public:
             { "backend.disable_handle_use_after_free_check",
               "Disable Handle<> use-after-free checks.",
               &features.backend.disable_handle_use_after_free_check, true },
+            { "backend.disable_heap_handle_tags",
+              "Disable Handle<> tags for heap-allocated handles.",
+              &features.backend.disable_heap_handle_tags, true },
             { "backend.opengl.assert_native_window_is_valid",
               "Asserts that the ANativeWindow is valid when rendering starts.",
               &features.backend.opengl.assert_native_window_is_valid, true },
+            { "engine.color_grading.use_1d_lut",
+              "Uses a 1D LUT for color grading.",
+              &features.engine.color_grading.use_1d_lut, false },
             { "engine.shadows.use_shadow_atlas",
               "Uses an array of atlases to store shadow maps.",
               &features.engine.shadows.use_shadow_atlas, false },
             { "features.engine.debug.assert_material_instance_in_use",
               "Assert when a MaterialInstance is destroyed while it is in use by RenderableManager.",
-              &features.engine.debug.assert_material_instance_in_use, false }
+              &features.engine.debug.assert_material_instance_in_use, false },
+            { "features.engine.debug.assert_destroy_material_before_material_instance",
+              "Assert when a Material is destroyed but its instances are still alive.",
+              &features.engine.debug.assert_destroy_material_before_material_instance, false },
     }};
 
     utils::Slice<const FeatureFlag> getFeatureFlags() const noexcept {
         return { mFeatures.data(), mFeatures.size() };
     }
 
-    bool setFeatureFlag(char const* name, bool value) noexcept;
+    bool setFeatureFlag(char const* name, bool value) const noexcept;
     std::optional<bool> getFeatureFlag(char const* name) const noexcept;
     bool* getFeatureFlagPtr(std::string_view name, bool allowConstant = false) const noexcept;
 };

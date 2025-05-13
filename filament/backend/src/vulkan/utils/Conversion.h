@@ -56,6 +56,25 @@ uint32_t getComponentCount(VkFormat format);
 VkComponentMapping getSwizzleMap(TextureSwizzle const swizzle[4]);
 VkShaderStageFlags getShaderStageFlags(ShaderStageFlags stageFlags);
 
+// Needed by the Platform for external sampler creation
+VkFilter getFilter(SamplerMinFilter filter);
+VkFilter getFilter(SamplerMagFilter filter);
+VkSamplerMipmapMode getMipmapMode(SamplerMinFilter filter);
+VkSamplerAddressMode getWrapMode(SamplerWrapMode mode);
+VkBool32 getCompareEnable(SamplerCompareMode mode);
+float getMaxLod(SamplerMinFilter filter);
+
+// Ycbcr related functions
+VkSamplerYcbcrModelConversion getYcbcrModelConversion(SamplerYcbcrModelConversion model);
+VkSamplerYcbcrRange getYcbcrRange(SamplerYcbcrRange range);
+VkChromaLocation getChromaLocation(ChromaLocation loc);
+
+// Ycbcr related functions
+SamplerYcbcrModelConversion getYcbcrModelConversionFilament(VkSamplerYcbcrModelConversion model);
+SamplerYcbcrRange getYcbcrRangeFilament(VkSamplerYcbcrRange range);
+ChromaLocation getChromaLocationFilament(VkChromaLocation loc);
+TextureSwizzle getSwizzleFilament(VkComponentSwizzle c, uint8_t rgbaIndex);
+
 inline VkImageViewType getViewType(SamplerType target) {
     switch (target) {
         case SamplerType::SAMPLER_CUBEMAP:
@@ -68,6 +87,21 @@ inline VkImageViewType getViewType(SamplerType target) {
             return VK_IMAGE_VIEW_TYPE_3D;
         default:
             return VK_IMAGE_VIEW_TYPE_2D;
+    }
+}
+
+inline VkPrimitiveTopology getPrimitiveTopology(PrimitiveType pt) noexcept {
+    switch (pt) {
+        case PrimitiveType::POINTS:
+            return VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
+        case PrimitiveType::LINES:
+            return VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
+        case PrimitiveType::LINE_STRIP:
+            return VK_PRIMITIVE_TOPOLOGY_LINE_STRIP;
+        case PrimitiveType::TRIANGLES:
+            return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+        case PrimitiveType::TRIANGLE_STRIP:
+            return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
     }
 }
 

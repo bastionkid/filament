@@ -51,6 +51,8 @@ VkFormat getVkFormat(ElementType type, bool normalized, bool integer) {
                 return VK_FORMAT_UNDEFINED;
         }
     }
+
+    // Non-normalized case
     switch (type) {
         // Single Component Types
         case ElementType::BYTE: return integer ? VK_FORMAT_R8_SINT : VK_FORMAT_R8_SSCALED;
@@ -588,11 +590,191 @@ VkComponentMapping getSwizzleMap(TextureSwizzle const swizzle[4]) {
     return map;
 }
 
+VkFilter getFilter(SamplerMinFilter filter) {
+    switch (filter) {
+    case SamplerMinFilter::NEAREST:
+        return VK_FILTER_NEAREST;
+    case SamplerMinFilter::LINEAR:
+        return VK_FILTER_LINEAR;
+    case SamplerMinFilter::NEAREST_MIPMAP_NEAREST:
+        return VK_FILTER_NEAREST;
+    case SamplerMinFilter::LINEAR_MIPMAP_NEAREST:
+        return VK_FILTER_LINEAR;
+    case SamplerMinFilter::NEAREST_MIPMAP_LINEAR:
+        return VK_FILTER_NEAREST;
+    case SamplerMinFilter::LINEAR_MIPMAP_LINEAR:
+        return VK_FILTER_LINEAR;
+    }
+}
+
+VkFilter getFilter(SamplerMagFilter filter) {
+    switch (filter) {
+    case SamplerMagFilter::NEAREST:
+        return VK_FILTER_NEAREST;
+    case SamplerMagFilter::LINEAR:
+        return VK_FILTER_LINEAR;
+    }
+}
+
+VkSamplerMipmapMode getMipmapMode(SamplerMinFilter filter) {
+    switch (filter) {
+    case SamplerMinFilter::NEAREST:
+        return VK_SAMPLER_MIPMAP_MODE_NEAREST;
+    case SamplerMinFilter::LINEAR:
+        return VK_SAMPLER_MIPMAP_MODE_NEAREST;
+    case SamplerMinFilter::NEAREST_MIPMAP_NEAREST:
+        return VK_SAMPLER_MIPMAP_MODE_NEAREST;
+    case SamplerMinFilter::LINEAR_MIPMAP_NEAREST:
+        return VK_SAMPLER_MIPMAP_MODE_NEAREST;
+    case SamplerMinFilter::NEAREST_MIPMAP_LINEAR:
+        return VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    case SamplerMinFilter::LINEAR_MIPMAP_LINEAR:
+        return VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    }
+}
+
+VkSamplerAddressMode getWrapMode(SamplerWrapMode mode) {
+    switch (mode) {
+    case SamplerWrapMode::REPEAT:
+        return VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    case SamplerWrapMode::CLAMP_TO_EDGE:
+        return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    case SamplerWrapMode::MIRRORED_REPEAT:
+        return VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
+    }
+}
+
+VkBool32 getCompareEnable(SamplerCompareMode mode) {
+    return mode == SamplerCompareMode::NONE ? VK_FALSE : VK_TRUE;
+}
+
+float getMaxLod(SamplerMinFilter filter) {
+    switch (filter) {
+    case SamplerMinFilter::NEAREST:
+    case SamplerMinFilter::LINEAR:
+        // The Vulkan spec recommends a max LOD of 0.25 to "disable" mipmapping.
+        // See "Mapping of OpenGL to Vulkan filter modes" in the VK Spec.
+        return 0.25f;
+    case SamplerMinFilter::NEAREST_MIPMAP_NEAREST:
+    case SamplerMinFilter::LINEAR_MIPMAP_NEAREST:
+    case SamplerMinFilter::NEAREST_MIPMAP_LINEAR:
+    case SamplerMinFilter::LINEAR_MIPMAP_LINEAR:
+        return VK_LOD_CLAMP_NONE;
+    }
+}
+
 VkShaderStageFlags getShaderStageFlags(ShaderStageFlags stageFlags) {
     VkShaderStageFlags flags = 0x0;
     if (any(stageFlags & ShaderStageFlags::VERTEX))     flags |= VK_SHADER_STAGE_VERTEX_BIT;
     if (any(stageFlags & ShaderStageFlags::FRAGMENT))   flags |= VK_SHADER_STAGE_FRAGMENT_BIT;
     return flags;
+}
+
+VkSamplerYcbcrModelConversion getYcbcrModelConversion(
+    SamplerYcbcrModelConversion model) {
+    switch (model) {
+    case SamplerYcbcrModelConversion::RGB_IDENTITY:
+        return VK_SAMPLER_YCBCR_MODEL_CONVERSION_RGB_IDENTITY;
+    case SamplerYcbcrModelConversion::YCBCR_IDENTITY:
+        return VK_SAMPLER_YCBCR_MODEL_CONVERSION_YCBCR_IDENTITY;
+    case SamplerYcbcrModelConversion::YCBCR_709:
+        return VK_SAMPLER_YCBCR_MODEL_CONVERSION_YCBCR_709;
+    case SamplerYcbcrModelConversion::YCBCR_601:
+        return VK_SAMPLER_YCBCR_MODEL_CONVERSION_YCBCR_601;
+    case SamplerYcbcrModelConversion::YCBCR_2020:
+        return VK_SAMPLER_YCBCR_MODEL_CONVERSION_YCBCR_2020;
+    default:
+        assert_invariant(false &&
+            "Unknown data type, conversion is not supported.");
+    }
+}
+
+VkSamplerYcbcrRange getYcbcrRange(SamplerYcbcrRange range) {
+    switch (range) {
+    case SamplerYcbcrRange::ITU_FULL:
+        return VK_SAMPLER_YCBCR_RANGE_ITU_FULL;
+    case SamplerYcbcrRange::ITU_NARROW:
+        return VK_SAMPLER_YCBCR_RANGE_ITU_NARROW;
+    default:
+        assert_invariant(false &&
+            "Unknown data type, conversion is not supported.");
+    }
+}
+
+VkChromaLocation getChromaLocation(ChromaLocation loc) {
+    switch (loc) {
+    case ChromaLocation::COSITED_EVEN:
+        return VK_CHROMA_LOCATION_COSITED_EVEN;
+    case ChromaLocation::MIDPOINT:
+        return VK_CHROMA_LOCATION_MIDPOINT;
+    default:
+        assert_invariant(false &&
+            "Unknown data type, conversion is not supported.");
+    }
+}
+
+SamplerYcbcrModelConversion getYcbcrModelConversionFilament(VkSamplerYcbcrModelConversion model) {
+    switch (model) {
+        case VK_SAMPLER_YCBCR_MODEL_CONVERSION_RGB_IDENTITY:
+            return SamplerYcbcrModelConversion::RGB_IDENTITY;
+        case VK_SAMPLER_YCBCR_MODEL_CONVERSION_YCBCR_IDENTITY:
+            return SamplerYcbcrModelConversion::YCBCR_IDENTITY;
+        case VK_SAMPLER_YCBCR_MODEL_CONVERSION_YCBCR_709:
+            return SamplerYcbcrModelConversion::YCBCR_709;
+        case VK_SAMPLER_YCBCR_MODEL_CONVERSION_YCBCR_601:
+            return SamplerYcbcrModelConversion::YCBCR_601;
+        case VK_SAMPLER_YCBCR_MODEL_CONVERSION_YCBCR_2020:
+            return SamplerYcbcrModelConversion::YCBCR_2020;
+        default:
+            assert_invariant(false && "Unknown data type, conversion is not supported.");
+            return {};
+    }
+}
+
+SamplerYcbcrRange getYcbcrRangeFilament(VkSamplerYcbcrRange range) {
+    switch (range) {
+        case VK_SAMPLER_YCBCR_RANGE_ITU_FULL:
+            return SamplerYcbcrRange::ITU_FULL;
+        case VK_SAMPLER_YCBCR_RANGE_ITU_NARROW:
+            return SamplerYcbcrRange::ITU_NARROW;
+        default:
+            assert_invariant(false && "Unknown data type, conversion is not supported.");
+            return {};
+    }
+}
+
+ChromaLocation getChromaLocationFilament(VkChromaLocation loc) {
+    switch (loc) {
+        case VK_CHROMA_LOCATION_COSITED_EVEN:
+            return ChromaLocation::COSITED_EVEN;
+        case VK_CHROMA_LOCATION_MIDPOINT:
+            return ChromaLocation::MIDPOINT;
+        default:
+            assert_invariant(false && "Unknown data type, conversion is not supported.");
+            return {};
+    }
+}
+
+TextureSwizzle getSwizzleFilament(VkComponentSwizzle c, uint8_t rgbaIndex) {
+    switch (c) {
+        case VK_COMPONENT_SWIZZLE_ZERO:
+            return TextureSwizzle::SUBSTITUTE_ZERO;
+        case VK_COMPONENT_SWIZZLE_ONE:
+            return TextureSwizzle::SUBSTITUTE_ONE;
+        case VK_COMPONENT_SWIZZLE_IDENTITY:
+            return (TextureSwizzle) (((uint8_t) TextureSwizzle::CHANNEL_0) + rgbaIndex);
+        case VK_COMPONENT_SWIZZLE_R:
+            return TextureSwizzle::CHANNEL_0;
+        case VK_COMPONENT_SWIZZLE_G:
+            return TextureSwizzle::CHANNEL_1;
+        case VK_COMPONENT_SWIZZLE_B:
+            return TextureSwizzle::CHANNEL_2;
+        case VK_COMPONENT_SWIZZLE_A:
+            return TextureSwizzle::CHANNEL_3;
+        default:
+            assert_invariant(false && "Unknown data type, conversion is not supported.");
+            return {};
+    }
 }
 
 } // namespace filament::backend::fvkutils

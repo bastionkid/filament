@@ -320,7 +320,7 @@ class MainActivity : FragmentActivity() {
     }
 
     private fun createDefaultRenderables() {
-        val buffer = assets.open("models/paint.gltf").use { input ->
+        val buffer = assets.open("models/stadium.gltf").use { input ->
             val bytes = ByteArray(input.available())
             input.read(bytes)
             ByteBuffer.wrap(bytes)
@@ -354,8 +354,8 @@ class MainActivity : FragmentActivity() {
 //                )
 //            )
 //        )
-//        addBallTrajectory()
-        copyMaterialFromOneEntityToAnother("Sphere1", "Sphere2")
+        addBallTrajectory()
+//        copyMaterialFromOneEntityToAnother("Sphere1", "Sphere2")
 
         modelViewer.showEntity("pitch")
         modelViewer.hideEntity("pitch_overlay")
@@ -375,14 +375,14 @@ class MainActivity : FragmentActivity() {
         val engine = modelViewer.engine
         val scene = modelViewer.scene
         val ibl = "white_furnace"
-        readCompressedAsset("envs/$ibl/${ibl}_ibl.ktx").let {
+        assets.readCompressedAsset("envs/$ibl/${ibl}_ibl.ktx").let {
             val bundle = KTX1Loader.createIndirectLight(engine, it)
             scene.indirectLight = bundle.indirectLight
             modelViewer.indirectLightCubemap = bundle.cubemap
             scene.indirectLight!!.intensity = 60_000.0f
-            viewerContent.indirectLight = modelViewer.scene.indirectLight
+//            viewerContent.indirectLight = modelViewer.scene.indirectLight
         }
-        readCompressedAsset("envs/$ibl/${ibl}_skybox.ktx").let {
+        assets.readCompressedAsset("envs/$ibl/${ibl}_skybox.ktx").let {
             val bundle = KTX1Loader.createSkybox(engine, it)
             scene.skybox = bundle.skybox
             modelViewer.skyboxCubemap = bundle.cubemap
